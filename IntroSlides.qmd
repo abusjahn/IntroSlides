@@ -1,0 +1,113 @@
+---
+title: "IntroSlides"
+format: 
+  revealjs:
+    css: styles.css
+    transition: slide
+---
+
+## Basic steps in workflow
+
+1.  Define environment
+2.  Import
+3.  Transform
+4.  Explore (general/outlier/distribution) (go back to 3?)
+5.  Classify scale level / distribution (based on 3/4)
+6.  Describe
+7.  Test / Model (may include step 6)
+8.  Report
+
+## Define environment
+
+-   Activate packages to use: library() / pacman::p_load()
+-   ggplot theme: theme_set() / theme_update()
+-   flextable settings: set_flextable_defaults()
+-   knitr::opts_chunk\$set( message = FALSE, warning = FALSE, include = FALSE, comment = NA, dpi = 300, results = "asis")
+
+## Import / Transform
+
+### Import
+
+-   read_xlsx() / read_csv() / read_csv2()
+-   options related to separators, number formats, ranges etc.
+
+### Transform
+
+-   rename() / rename_with()
+-   mutate() / mutate(across())
+-   e.g. for log-transformation, creation of factors, text recodings
+
+## Explore / group variables
+
+### Explore (general/outlier/distribution)
+
+-   ggplot()+geom_boxplot() / geom_beeswarm() / geom_density()
+-   ks.test() / ksnormal() / shapiro.test()
+
+### Classify scale level / distribution
+
+-   gaussvars / ordvars / factvars, possibly more...
+-   Store variables accordingly, e.g. FindVars()
+
+## Model
+
+### Describe
+
+-   mean() / sd() / meansd()
+-   median() / quantile() / median_quart()
+-   table() / prop.table() / cat_desc_stats()
+
+### Test
+
+-   t.test() / lm()+\[Aa\]nova() / compare2numvars()
+-   wilcox.test()
+-   fisher.test() / glm(family=binomial)
+
+### Visualize
+
+## Report
+
+-   flextable()
+-   set_caption()
+-   set_table_properties(width=1, layout='autofit')
+-   bg()
+
+## Transformations: colnames
+
+```{r}
+if(!require(wrappedtools)){
+  install.packages("wrappedtools")
+}
+library(wrappedtools)
+```
+
+```{r, eval=TRUE, echo=TRUE}
+colnames(faketrial)[1:10]
+faketrial <- rename(faketrial,
+                    Heartrate = HR) #newname = oldname
+faketrial <- rename_with(faketrial,
+                         .fn = ~str_replace(string = .,  #. is placeholder
+                                            pattern = "Fa.+$",
+                                            replacement = "generic"))
+colnames(faketrial)[1:10]
+```
+
+<!-- ### Output   -->
+
+## Transformations: content
+
+```{r, eval=TRUE, echo=TRUE }
+ksnormal(faketrial$`Biomarker 1 [units]`)
+faketrial <- mutate(faketrial,
+                    `Biomarker 1 ln`=log(`Biomarker 1 [units]`))
+ksnormal(faketrial$`Biomarker 1 ln`)
+# faketrial |> select(contains('Biomarker 1 ')) |> str()
+faketrial <- mutate(faketrial,
+                    across(matches('Biom.+\\]'),
+                    .fns = ~.x*1000,
+                    .names = "{.col}1000"),
+                    across(starts_with('Med'),
+                           .fns = factor))
+faketrial |> select(contains('Biomarker 1 ')) |> str()
+
+```
