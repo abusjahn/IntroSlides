@@ -2,112 +2,277 @@
 title: "IntroSlides"
 format: 
   revealjs:
-    css: styles.css
+    slide-number: c/t
+    width: 1200
+    height: 900
     transition: slide
+    cap-location: bottom
+    fig-align: center
+    fig-format: png 
+    fig-dpi: 300
+    center: false
 ---
 
-## Basic steps in workflow
+## *Basic steps in workflow*
 
-1.  Define environment
-2.  Import
-3.  Transform
-4.  Explore (general/outlier/distribution) (go back to 3?)
-5.  Classify scale level / distribution (based on 3/4)
-6.  Describe
-7.  Test / Model (may include step 6)
-8.  Report
+1.  *Define environment*
+2.  *Import*
+3.  *Transform*
+4.  *Explore (general/outlier/distribution) (go back to 3?)*
+5.  *Classify scale level / distribution (based on 3/4)*
+6.  *Describe*
+7.  *Test / Model (may include step 6)*
+8.  *Report*
 
-## Define environment
+## *Define environment*
 
--   Activate packages to use: library() / pacman::p_load()
--   ggplot theme: theme_set() / theme_update()
--   flextable settings: set_flextable_defaults()
--   knitr::opts_chunk\$set( message = FALSE, warning = FALSE, include = FALSE, comment = NA, dpi = 300, results = "asis")
+-   *Activate packages to use: library() / pacman::p_load()*
+-   *ggplot theme: theme_set() / theme_update()*
+-   *flextable settings: set_flextable_defaults()*
+-   *knitr::opts_chunk\$set()*
 
-## Import / Transform
-
-### Import
-
--   read_xlsx() / read_csv() / read_csv2()
--   options related to separators, number formats, ranges etc.
-
-### Transform
-
--   rename() / rename_with()
--   mutate() / mutate(across())
--   e.g. for log-transformation, creation of factors, text recodings
-
-## Explore / group variables
-
-### Explore (general/outlier/distribution)
-
--   ggplot()+geom_boxplot() / geom_beeswarm() / geom_density()
--   ks.test() / ksnormal() / shapiro.test()
-
-### Classify scale level / distribution
-
--   gaussvars / ordvars / factvars, possibly more...
--   Store variables accordingly, e.g. FindVars()
-
-## Model
-
-### Describe
-
--   mean() / sd() / meansd()
--   median() / quantile() / median_quart()
--   table() / prop.table() / cat_desc_stats()
-
-### Test
-
--   t.test() / lm()+\[Aa\]nova() / compare2numvars()
--   wilcox.test()
--   fisher.test() / glm(family=binomial)
-
-### Visualize
-
-## Report
-
--   flextable()
--   set_caption()
--   set_table_properties(width=1, layout='autofit')
--   bg()
-
-## Transformations: colnames
-
-```{r}
-if(!require(wrappedtools)){
-  install.packages("wrappedtools")
+```{r, echo=TRUE}
+if(!require(pacman)){
+  install.packages("pacman")
 }
-library(wrappedtools)
+pacman::p_load(wrappedtools, 
+               ggbeeswarm, ggsignif, ggridges,
+               car, flextable)
+
+knitr::opts_chunk$set(message = FALSE, 
+                      warning = FALSE, 
+                      comment = NA)
+
+set_flextable_defaults(
+  font.size = 9, 
+  theme_fun = theme_zebra,
+  padding.bottom = 1, 
+  padding.top = 3,
+  padding.left = 2,
+  padding.right = 4)
+
+theme_set(theme_light(base_size = 20))
 ```
+
+## *Import / Transform*
+
+### *Import*
+
+-   *read_xlsx() / read_csv() / read_csv2()*
+-   *options related to separators, number formats, ranges etc.*
+
+### *Transform*
+
+-   *rename() / rename_with()*
+-   *mutate() / mutate(across())*
+-   *e.g. for log-transformation, creation of factors, text recodings*
+
+## *Transformations: colnames*
 
 ```{r, eval=TRUE, echo=TRUE}
+data(faketrial) # from wrappedtools
 colnames(faketrial)[1:10]
-faketrial <- rename(faketrial,
-                    Heartrate = HR) #newname = oldname
-faketrial <- rename_with(faketrial,
-                         .fn = ~str_replace(string = .,  #. is placeholder
-                                            pattern = "Fa.+$",
-                                            replacement = "generic"))
+faketrial <- 
+  rename(.data = faketrial,
+         Heartrate = HR) #newname = oldname
+faketrial <- 
+  rename_with(faketrial,
+              .fn = ~str_replace(string = .,  #. is placeholder
+                                 pattern = "Fa.+$",
+                                 replacement = "generic"))
 colnames(faketrial)[1:10]
 ```
 
-<!-- ### Output   -->
-
-## Transformations: content
+## *Transformations: content*
 
 ```{r, eval=TRUE, echo=TRUE }
 ksnormal(faketrial$`Biomarker 1 [units]`)
-faketrial <- mutate(faketrial,
-                    `Biomarker 1 ln`=log(`Biomarker 1 [units]`))
+faketrial <- 
+  mutate(faketrial,
+         `Biomarker 1 ln`=log(`Biomarker 1 [units]`))
 ksnormal(faketrial$`Biomarker 1 ln`)
 # faketrial |> select(contains('Biomarker 1 ')) |> str()
-faketrial <- mutate(faketrial,
-                    across(matches('Biom.+\\]'),
-                    .fns = ~.x*1000,
-                    .names = "{.col}1000"),
-                    across(starts_with('Med'),
-                           .fns = factor))
-faketrial |> select(contains('Biomarker 1 ')) |> str()
+faketrial <- 
+  mutate(faketrial,
+         across(matches('Biom.+\\]'),
+                .fns = ~.x*1000,
+                .names = "{.col}x1000"),
+         across(starts_with('Med'),
+                .fns = factor))
+faketrial |> 
+  select(contains('Biomarker 1 ')) |> 
+  str()
 
 ```
+
+## *Explore / group variables*
+
+### *Explore (general/outlier/distribution)*
+
+-   *ggplot()+geom_boxplot() / geom_beeswarm() / geom_density()*
+-   *ks.test() / ksnormal() / shapiro.test()*
+
+### *Classify scale level / distribution*
+
+-   *gaussvars / ordvars / factvars, possibly more...*
+-   *Store variables accordingly, e.g. FindVars()*
+
+## *Explore: Outlier*
+
+```{r, echo=TRUE}
+ggplot(faketrial,
+       aes(x = Treatment,
+           y = `Biomarker 1 [units]`))+
+  geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
+  geom_beeswarm(alpha=.5)
+```
+
+## *Explore: Normal distribution 1*
+
+```{r, echo=TRUE}
+p_normal <- 
+  shapiro.test(faketrial$`Biomarker 1 [units]`)
+p_normal
+ggplot(faketrial,aes(x = `Biomarker 1 [units]`))+
+  geom_density(linewidth=3)+
+  ggtitle(paste('p (Shapiro)',
+                formatP(p_normal$p.value, pretext = T)))
+```
+
+## *Explore: Normal distribution 2*
+
+```{r, echo=TRUE}
+faketrial |> 
+  summarize(across(.cols = starts_with('Biom'),
+                   .fns = ksnormal)) |> 
+  pivot_longer(cols = everything(),
+               names_to = 'Variable',values_to = 'pKS')
+```
+
+## *Explore: Group variables*
+
+```{r, echo=TRUE}
+gaussvars <- FindVars(varnames = c('He','RR'), 
+                      allnames = cn(faketrial))
+gaussvars
+ordvars <- FindVars(c('B'), 
+                    allnames = cn(faketrial), 
+                    exclude = c('x1','ln$'))
+ordvars$names |> head(n = 6)
+factvars <- FindVars(c('Sex','Res','generic'), 
+                     allnames = cn(faketrial))
+factvars$bticked |> head(n=4)
+```
+
+## *Model*
+
+### *Describe*
+
+-   *mean() / sd() / meansd()*
+-   *median() / quantile() / median_quart()*
+-   *table() / prop.table() / cat_desc_stats()*
+
+### *Test*
+
+-   *t.test() / lm()+\[Aa\]nova() / compare2numvars()*
+-   *wilcox.test()*
+-   *fisher.test() / glm(family=binomial)*
+
+## *Model: Describe*
+
+```{r, echo=TRUE}
+desc_gauss <- faketrial |> 
+  summarize(across(.cols = gaussvars$names,
+                   .fns = meansd))
+desc_gauss
+desc_ord <- faketrial |> 
+  summarize(across(ordvars$names,
+                   .fns=~median_quart(.x))) |> 
+  pivot_longer(everything())
+desc_ord
+```
+
+## *Model: Test 1 / single variables*
+
+```{r, echo=TRUE}
+#t-Test with test for equal variances
+t.test(formula=sysRR~Treatment, data=faketrial,
+       var.equal=var.test(formula=sysRR~Treatment, 
+                          data=faketrial)$p.value>.05)
+
+#Wilcoxon-Test
+wilcox.test(`Biomarker 1 [units]`~Treatment, 
+            data = faketrial)
+```
+
+## *Model: Test 2 / muliple variables*
+
+```{r, echo=TRUE}
+test_gauss <- compare2numvars(data = faketrial,
+                              dep_vars = gaussvars$names,
+                              indep_var = 'Treatment',
+                              gaussian = TRUE,
+                              round_p = 5)
+test_gauss
+test_ord <- compare2numvars(data = faketrial,
+                            dep_vars = ordvars$names,
+                            indep_var = 'Treatment',
+                            gaussian = FALSE)
+test_ord |> slice_head(n = 5)
+```
+
+## *Model: linear models 1 / univariable*
+
+```{r, echo=TRUE}
+lm1<- lm(sysRR~Agegroup, data=faketrial)
+lm1
+anova(lm1)
+```
+
+## *Model: linear models 2 / multivariable*
+
+```{r, echo=TRUE}
+lm2<- lm(sysRR~(Sex+Agegroup)*Treatment, 
+         data=faketrial)
+lm2
+Anova(lm2,type = 3)
+```
+
+## *Visualize 1*
+
+```{r, echo=TRUE}
+ggplot(faketrial,aes(x = Treatment, y = sysRR))+
+  geom_violin(draw_quantiles = c(.25,.5,.75))+
+  geom_signif(comparisons = list(c(1,2)),
+              annotations = 
+                paste('p',
+                      formatP(test_gauss$p[2],
+                              pretext = T)))+
+  scale_y_continuous(expand = expansion(mult = .1))
+
+```
+
+## *Visualize 2*
+
+```{r, echo=TRUE}
+ggplot(faketrial,aes(x = sysRR, y = Agegroup, fill=Agegroup))+
+  geom_density_ridges()+
+  guides(fill='none')
+```
+
+## *Report*
+
+-   *RMarkdown and quarto are powerful tools to create reports*
+
+-   *Package flextable provides nice features for table formatting*
+
+```{r, echo=TRUE}
+test_gauss |> 
+  flextable() |> 
+  bg(~p<=0.05,j = 5,bg = 'yellow') |> 
+  set_caption('Treatment effects, measures following a normal distribution') |> 
+  add_footer_lines('Significance level is set at .0.5') 
+
+```
+
+![](flextableoutput.png)
