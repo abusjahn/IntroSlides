@@ -36,7 +36,7 @@ if(!require(pacman)){
   install.packages("pacman")
 }
 pacman::p_load(wrappedtools, 
-               ggbeeswarm, ggsignif, ggridges,
+               ggbeeswarm, ggsignif, ggridges, 
                car, flextable)
 
 knitr::opts_chunk$set(message = FALSE, 
@@ -255,9 +255,11 @@ ggplot(faketrial,aes(x = Treatment, y = sysRR))+
 ## *Visualize 2*
 
 ```{r, echo=TRUE}
+agecolor <- c("#009E73", "#D55E00", "#0072B2")
 ggplot(faketrial,aes(x = sysRR, y = Agegroup, fill=Agegroup))+
   geom_density_ridges()+
-  guides(fill='none')
+  guides(fill='none')+
+  scale_fill_manual(values = agecolors)
 ```
 
 ## *Report*
