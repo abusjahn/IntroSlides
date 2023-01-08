@@ -39,19 +39,16 @@ pacman::p_load(wrappedtools,
                ggbeeswarm, ggsignif, ggridges, 
                car, flextable)
 
-knitr::opts_chunk$set(message = FALSE, 
-                      warning = FALSE, 
-                      comment = NA)
+theme_set(theme_light(base_size = 20))
 
 set_flextable_defaults(
   font.size = 9, 
   theme_fun = theme_zebra,
-  padding.bottom = 1, 
-  padding.top = 3,
-  padding.left = 2,
-  padding.right = 4)
+  padding.bottom = 1, padding.top = 3, padding.left = 2, padding.right = 4)
 
-theme_set(theme_light(base_size = 20))
+knitr::opts_chunk$set(message = FALSE, 
+                      warning = FALSE, 
+                      comment = NA)
 ```
 
 ## *Import / Transform*
@@ -188,7 +185,9 @@ desc_gauss
 desc_ord <- faketrial |> 
   summarize(across(ordvars$names,
                    .fns=~median_quart(.x))) |> 
-  pivot_longer(everything())
+  pivot_longer(everything(),
+               names_to = 'Measure',
+               values_to = 'Median[1Q/3Q]')
 desc_ord
 ```
 
@@ -205,7 +204,7 @@ wilcox.test(`Biomarker 1 [units]`~Treatment,
             data = faketrial)
 ```
 
-## *Model: Test 2 / muliple variables*
+## *Model: Test 2 / multiple variables*
 
 ```{r, echo=TRUE}
 test_gauss <- compare2numvars(data = faketrial,
@@ -227,6 +226,8 @@ test_ord |> slice_head(n = 5)
 lm1<- lm(sysRR~Agegroup, data=faketrial)
 lm1
 anova(lm1)
+#post-hoc
+pairwise.t.test(x = faketrial$sysRR, g = faketrial$Agegroup, p.adjust.method = 'fdr')
 ```
 
 ## *Model: linear models 2 / multivariable*
@@ -255,9 +256,9 @@ ggplot(faketrial,aes(x = Treatment, y = sysRR))+
 ## *Visualize 2*
 
 ```{r, echo=TRUE}
-agecolor <- c("#009E73", "#D55E00", "#0072B2")
+agecolors <- c("#009E73", "#D55E00", "#0072B2")
 ggplot(faketrial,aes(x = sysRR, y = Agegroup, fill=Agegroup))+
-  geom_density_ridges()+
+  geom_density_ridges(alpha=.9)+
   guides(fill='none')+
   scale_fill_manual(values = agecolors)
 ```
@@ -273,7 +274,7 @@ test_gauss |>
   flextable() |> 
   bg(~p<=0.05,j = 5,bg = 'yellow') |> 
   set_caption('Treatment effects, measures following a normal distribution') |> 
-  add_footer_lines('Significance level is set at .0.5') 
+  add_footer_lines('Significance level is set at 0.05') 
 
 ```
 
