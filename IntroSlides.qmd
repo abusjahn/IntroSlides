@@ -83,18 +83,18 @@ colnames(faketrial)[1:10]
 ## *Transformations: content*
 
 ```{r, eval=TRUE, echo=TRUE }
-ksnormal(faketrial$`Biomarker 1 [units]`)
+ksnormal(x = faketrial$`Biomarker 1 [units]`)
 faketrial <- 
-  mutate(faketrial,
+  mutate(.data = faketrial,
          `Biomarker 1 ln`=log(`Biomarker 1 [units]`))
 ksnormal(faketrial$`Biomarker 1 ln`)
 # faketrial |> select(contains('Biomarker 1 ')) |> str()
 faketrial <- 
-  mutate(faketrial,
-         across(matches('Biom.+\\]'),
+  mutate(.data = faketrial,
+         across(.cols = matches('Biom.+\\]'),
                 .fns = ~.x*1000,
                 .names = "{.col}x1000"),
-         across(starts_with('Med'),
+         across(.cols = starts_with('Med'),
                 .fns = factor))
 faketrial |> 
   select(contains('Biomarker 1 ')) |> 
@@ -117,7 +117,7 @@ faketrial |>
 ## *Explore: Outlier*
 
 ```{r, echo=TRUE}
-ggplot(faketrial,
+ggplot(data = faketrial,
        aes(x = Treatment,
            y = `Biomarker 1 [units]`))+
   geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
@@ -128,12 +128,12 @@ ggplot(faketrial,
 
 ```{r, echo=TRUE}
 p_normal <- 
-  shapiro.test(faketrial$`Biomarker 1 [units]`)
+  shapiro.test(x = faketrial$`Biomarker 1 [units]`)
 p_normal
-ggplot(faketrial,aes(x = `Biomarker 1 [units]`))+
+ggplot(data = faketrial,aes(x = `Biomarker 1 [units]`))+
   geom_density(linewidth=3)+
   ggtitle(paste('p (Shapiro)',
-                formatP(p_normal$p.value, pretext = T)))
+                formatP(pIn = p_normal$p.value, pretext = T)))
 ```
 
 ## *Explore: Normal distribution 2*
@@ -279,3 +279,11 @@ test_gauss |>
 ```
 
 ![](flextableoutput.png)
+
+## Useful tools along the way 
+
+-   Pick columns / rows
+
+-   Change format of tibble wide \<\--\> long (e.g. for repeated measures)
+
+-   Regular expression
