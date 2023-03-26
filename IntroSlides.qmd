@@ -1,5 +1,6 @@
 ---
-title: "IntroSlides"
+# src: plugin/math/math.js
+title: "IntroSlides with focus on statistics"
 format: 
   revealjs:
     slide-number: c/t
@@ -11,9 +12,10 @@ format:
     fig-format: png 
     fig-dpi: 300
     center: false
+    chalkboard: true
 ---
 
-## *Basic steps in workflow*
+## Basic steps in workflow
 
 1.  *Define environment*
 2.  *Import*
@@ -24,7 +26,7 @@ format:
 7.  *Test / Model (may include step 6)*
 8.  *Report*
 
-## *Define environment*
+## Define environment
 
 -   *Activate packages to use: library() / pacman::p_load()*
 -   *ggplot theme: theme_set() / theme_update()*
@@ -35,74 +37,56 @@ format:
 if(!require(pacman)){
   install.packages("pacman")
 }
-pacman::p_load(wrappedtools, 
-               ggbeeswarm, ggsignif, ggridges, 
-               car, flextable)
+pacman::p_load(conflicted,tidyverse,wrappedtools, readxl,
+               ggbeeswarm, ggsignif, ggridges, car, flextable)
+
+conflicts_prefer(dplyr::filter,dplyr::select)
 
 theme_set(theme_light(base_size = 20))
 
 set_flextable_defaults(
-  font.size = 9, 
-  theme_fun = theme_zebra,
+  theme_fun = theme_zebra, font.size = 14, table.layout = 'autofit',
   padding.bottom = 1, padding.top = 3, padding.left = 2, padding.right = 4)
 
-knitr::opts_chunk$set(message = FALSE, 
-                      warning = FALSE, 
-                      comment = NA)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = NA, echo = TRUE)
 ```
 
-## *Import / Transform*
-
-### *Import*
+## Import
 
 -   *read_xlsx() / read_csv() / read_csv2()*
 -   *options related to separators, number formats, ranges etc.*
+-   rename() / rename_with()
 
-### *Transform*
-
--   *rename() / rename_with()*
--   *mutate() / mutate(across())*
--   *e.g. for log-transformation, creation of factors, text recodings*
-
-## *Transformations: colnames*
-
-```{r, eval=TRUE, echo=TRUE}
-data(faketrial) # from wrappedtools
-colnames(faketrial)[1:10]
-faketrial <- 
-  rename(.data = faketrial,
-         Heartrate = HR) #newname = oldname
-faketrial <- 
-  rename_with(faketrial,
-              .fn = ~str_replace(string = .,  #. is placeholder
-                                 pattern = "Fa.+$",
-                                 replacement = "generic"))
-colnames(faketrial)[1:10]
+```{r}
+rawdata <- read_excel('Data/DOC-20230130-WA0000_.xlsx')
+colnames(rawdata)
+rawdata <- rename_with(rawdata,.fn = ~str_replace_all(cn(),
+            c('AL.+UM'= 'Cup', 'C[UA]P' = 'Cup','\\(\\w+.*\\)'='','Cup Cup'='Cup')) |> 
+              str_to_title() |> str_trim())
+cn() |> paste(collapse='; ') |> cat()
 ```
 
-## *Transformations: content*
+## *Import: Glimpse at data*
 
-```{r, eval=TRUE, echo=TRUE }
-ksnormal(x = faketrial$`Biomarker 1 [units]`)
-faketrial <- 
-  mutate(.data = faketrial,
-         `Biomarker 1 ln`=log(`Biomarker 1 [units]`))
-ksnormal(faketrial$`Biomarker 1 ln`)
-# faketrial |> select(contains('Biomarker 1 ')) |> str()
-faketrial <- 
-  mutate(.data = faketrial,
-         across(.cols = matches('Biom.+\\]'),
-                .fns = ~.x*1000,
-                .names = "{.col}x1000"),
-         across(.cols = starts_with('Med'),
-                .fns = factor))
-faketrial |> 
-  select(contains('Biomarker 1 ')) |> 
-  str()
+Find the problem?
+
+```{r}
+head(rawdata,n = 3) |> flextable() 
 
 ```
 
-## *Explore / group variables*
+## Transform
+
+-   *Change or create columns with mutate() / mutate(across())*
+-   *e.g. for log-transformation, creation of factors, text recoding*
+
+```{r}
+rawdata <- rawdata |> 
+  rename(`Dry Content (%)`=`Moisture Content (%)`) |> 
+mutate(`Moisture Content (%)`=100-`Dry Content (%)`)
+```
+
+## Explore / group variables
 
 ### *Explore (general/outlier/distribution)*
 
@@ -117,21 +101,47 @@ faketrial |>
 ## *Explore: Outlier*
 
 ```{r, echo=TRUE}
-ggplot(data = faketrial,
-       aes(x = Treatment,
-           y = `Biomarker 1 [units]`))+
+ggplot(data = rawdata,
+       aes(x = `Code Of Sample`,
+           y = `Weight Of Empty Cup`))+
+  geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
+  geom_beeswarm(alpha=.5)
+```
+
+## Handle outliers?
+
+Removal is the worst strategy possible, correct errors, think about distributions, winsorize...
+
+![](Figures/outlier.jpg)
+
+## *Explore: Unexpecteds*
+
+```{r}
+ggplot(data = rawdata,
+       aes(x = `Code Of Sample`,
+           y = `Moisture Content (%)`))+
   geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
   geom_beeswarm(alpha=.5)
 ```
 
 ## *Explore: Normal distribution 1*
 
+-   Gaussian Normal distribution is required for many statistical procedures
+
+-   Common tests are graphical exploration, Shapiro-Wilk-test and Kolmogorov-Smirnov-test
+
 ```{r, echo=TRUE}
 p_normal <- 
-  shapiro.test(x = faketrial$`Biomarker 1 [units]`)
+  shapiro.test(x = rawdata$`Moisture Content (%)`)
 p_normal
-ggplot(data = faketrial,aes(x = `Biomarker 1 [units]`))+
-  geom_density(linewidth=3)+
+
+```
+
+## 
+
+```{r}
+ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Code Of Sample`))+
+  geom_density(linewidth=3, alpha=.5)+
   ggtitle(paste('p (Shapiro)',
                 formatP(pIn = p_normal$p.value, pretext = T)))
 ```
@@ -139,29 +149,56 @@ ggplot(data = faketrial,aes(x = `Biomarker 1 [units]`))+
 ## *Explore: Normal distribution 2*
 
 ```{r, echo=TRUE}
-faketrial |> 
-  summarize(across(.cols = starts_with('Biom'),
-                   .fns = ksnormal)) |> 
-  pivot_longer(cols = everything(),
-               names_to = 'Variable',values_to = 'pKS')
+rawdata |> 
+  group_by(`Code Of Sample`) |> 
+  summarize(across(.cols = where(is.numeric), .fns = ksnormal)) |> 
+  pivot_longer(cols = -1, names_to = 'Variable', values_to = 'pKS') |> 
+  pivot_wider(names_from = `Code Of Sample`, values_from = pKS) 
 ```
 
-## *Explore: Group variables*
+## Transform subgroups?
+
+```{r}
+rawdata <- mutate(rawdata, Subgroup = case_when(
+  `Code Of Sample`=='A' & `Moisture Content (%)` > 9 ~ 'A high',
+  `Code Of Sample`=='A' & `Moisture Content (%)` <= 9 ~ 'A low',
+  `Code Of Sample`=='D' ~ 'D') |> factor())
+ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subgroup))+
+  geom_density_ridges(alpha=.5, scale=1)
+```
+
+## *Explore: Group variables by type/distribution*
+
+Scale level determines what statistics are appropriate
+
+Typical scale levels are
+
+-   nominal/categorical/factorial/qualitative: just different groups\
+    (species, eye color)
+
+-   ordered categories: few groups with inherent order\
+    (quality bad\<medium\<good)
+
+-   ordinal measures: many different values, natural order, no distribution assumption
+
+-   measures following a Normal distribution
+
+-   possibly measures from other known distributions\
+    (beta, log-normal, poisson...)
+
+## *Make type decision obvious/reproducible*
 
 ```{r, echo=TRUE}
-gaussvars <- FindVars(varnames = c('He','RR'), 
-                      allnames = cn(faketrial))
+gaussvars <- FindVars(varnames = 'Weight Of Sample', 
+                      allnames = cn(rawdata))
 gaussvars
-ordvars <- FindVars(c('B'), 
-                    allnames = cn(faketrial), 
-                    exclude = c('x1','ln$'))
-ordvars$names |> head(n = 6)
-factvars <- FindVars(c('Sex','Res','generic'), 
-                     allnames = cn(faketrial))
-factvars$bticked |> head(n=4)
+ordvars <- FindVars(c('Cup','Content'), exclude = 'Code')
+ordvars$names
+factvars <- FindVars(c('Code','group'))
+factvars$bticked
 ```
 
-## *Model*
+## Model
 
 ### *Describe*
 
@@ -177,62 +214,185 @@ factvars$bticked |> head(n=4)
 
 ## *Model: Describe*
 
+-   **Sample size n:** per variable, if there are missing values
+
+-   **Mean**: central tendency, the expected *typical* value **sum(x)/n**
+
+-   **Variance**: measure for variability/heterogeneity of data **sum(x-mean)^2^/(n-1)**
+
+-   **Standard deviation SD**: based on variance, the *typical* weighted deviation from the mean **sqrt(Var)**
+
+-   **Standard error of the mean SEM**: how reliable is my mean *estimate*, what would be the expected SD of means from repeated experiments? **SD/sqrt(n)**
+
+-   **Median**: Split between lower/upper 50% of data
+
+-   **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot
+
+## 
+
 ```{r, echo=TRUE}
-desc_gauss <- faketrial |> 
+desc_gauss <- rawdata |> 
   summarize(across(.cols = gaussvars$names,
                    .fns = meansd))
 desc_gauss
-desc_ord <- faketrial |> 
-  summarize(across(ordvars$names,
-                   .fns=~median_quart(.x))) |> 
+desc_ord <- rawdata |> 
+  summarize(across(ordvars$names,.fns=~median_quart(.x,roundDig = 3))) |> 
   pivot_longer(everything(),
-               names_to = 'Measure',
-               values_to = 'Median[1Q/3Q]')
+               names_to = 'Measure', values_to = 'Median[1Q/3Q]')
 desc_ord
 ```
 
-## *Model: Test 1 / single variables*
+## Descriptive Stats should match distribution and data
+
+![](Figures/MeanMedian.jpg){fig-align="center"}
+
+## *Model: Test*
+
+Tests require hypotheses
+
+![](Figures/guestimate.gif){fig-align="center" width="500"}
+
+## Null hypothesis ?
+
+-   Working hypothesis: This is what you expect! E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
+
+-   Null hypothesis: This is what you test! No difference / relation, BP under therapy = BP under placebo
+
+## 4 possibilities:
+
+-   Null hypothesis correct, test false positive (case A): alpha-error
+
+-   Null hypothesis correct, test correct negative (case B)
+
+-   Null hypothesis false, test false negative (case C): beta-error
+
+-   Null hypothesis false, test correct positive (case D)
+
+**Significance**: NOT probability of case A, but probability of your data given the NULL hypothesis, calculated from your data, conventionally \<0.05
+
+**Power**: Probability of case D, *estimated* based on assumptions about effects and sample size, *calculation* would require knowledge of true difference, conventionally set at 0.80
+
+## Test functions
+
+### t-test / Wilcoxon-test (aka Mann-Whitney U-test)
+
+![](Figures/MeanDiff.png){fig-align="center" width="800"}
+
+## t-test
+
+-   Assumptions: Continuous data with Normal distribution
+
+-   1 or 2 (independent or dependent) samples with/without equal variances
+
+-   how big is the mean difference relative to uncertainty?\
+    t = (mean~1~ - mean~2~)/SEM
+
+-   t follows a t-distribution, allows estimation of probability of t under the NULL hypothesis
+
+### Wilcoxon-test
+
+-   nonparametric, no distribution is assumed
+
+-   based on rank-transformed data
+
+-   insensitive to extreme values
+
+## Test examples: *single variables*
 
 ```{r, echo=TRUE}
 #t-Test with test for equal variances
-t.test(formula=sysRR~Treatment, data=faketrial,
-       var.equal=var.test(formula=sysRR~Treatment, 
-                          data=faketrial)$p.value>.05)
-
+t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Code Of Sample`, data=rawdata,
+       var.equal=var.test(formula=`Weight Of Sample Before Drying`~`Code Of Sample`, 
+                          
+                          data=rawdata)$p.value>.05)
+t_out
 #Wilcoxon-Test
-wilcox.test(`Biomarker 1 [units]`~Treatment, 
-            data = faketrial)
+wilcox.test(`Moisture Content (%)`~`Code Of Sample`, 
+            data = rawdata)
+```
+
+## From t to p
+
+```{r, echo=FALSE}
+tdata <- tibble(t=seq(-3,3,.01),y=dt(t,df = t_out$parameter))
+plottmp <- ggplot(tdata,aes(t,y))+geom_line()
+d <- ggplot_build(plottmp)$data[[1]]
+plottmp + geom_area(data = d %>% filter(x>=t_out$statistic),aes(x,y),
+                    fill='orangered',alpha=.5)+
+          geom_area(data = d %>% filter(x<=-t_out$statistic),aes(x,y),
+                    fill='orangered',alpha=.5)+
+          geom_vline(xintercept = t_out$statistic, linetype=3)+
+          ggtitle(paste0('from t-test: t = ',roundR(t_out$statistic), 
+                         ', p ',formatP(t_out$p.value, pretext = T)))+
+          annotate('label', x=t_out$statistic,y=.0,
+                   label=paste('area = ', roundR(pt(t_out$statistic,t_out$parameter,lower.tail = F))), hjust=-0.1, vjust=-0.1)
+  
 ```
 
 ## *Model: Test 2 / multiple variables*
 
 ```{r, echo=TRUE}
-test_gauss <- compare2numvars(data = faketrial,
+test_gauss <- compare2numvars(data = rawdata,
                               dep_vars = gaussvars$names,
-                              indep_var = 'Treatment',
+                              indep_var = 'Code Of Sample',
                               gaussian = TRUE,
                               round_p = 5)
-test_gauss
-test_ord <- compare2numvars(data = faketrial,
+test_gauss |> flextable()
+
+```
+
+## 
+
+```{r}
+test_ord <- compare2numvars(data = rawdata,
                             dep_vars = ordvars$names,
-                            indep_var = 'Treatment',
-                            gaussian = FALSE)
-test_ord |> slice_head(n = 5)
+                            indep_var = 'Code Of Sample',
+                            gaussian = FALSE,round_desc = 3)
+test_ord |> flextable() 
+```
+
+## Show results
+
+```{r}
+ggplot(rawdata, aes(x = `Code Of Sample`,y = `Weight Of Sample Before Drying`))+
+  geom_boxplot(outlier.alpha = 0)+
+  geom_beeswarm(alpha=.7, size=2,cex = 2)+
+  geom_signif(comparisons = list(c(1,2)),
+              annotations = paste('p',formatP(t_out$p.value)))
+```
+
+## Re-thinking test decision?
+
+```{r}
+ggplot(rawdata, aes(x = `Code Of Sample`,y = `Weight Of Sample Before Drying`))+
+  geom_boxplot(outlier.alpha = 0)+
+  geom_beeswarm(alpha=.7, size=2,cex = 2)+
+  geom_signif(comparisons = list(c(1,2)),test = wilcox.test)
 ```
 
 ## *Model: linear models 1 / univariable*
 
-```{r, echo=TRUE}
-lm1<- lm(sysRR~Agegroup, data=faketrial)
+```{r}
+plottmp <- ggplot(rawdata,aes(Subgroup,`Weight Of Empty Cup`))+
+  geom_violin(draw_quantiles = c(.25,.5,.75))+
+  geom_beeswarm()
+print(plottmp)
+```
+
+## 
+
+```{r}
+lm1<- lm(`Weight Of Empty Cup`~Subgroup, data=rawdata)
 lm1
 anova(lm1)
 #post-hoc
-pairwise.t.test(x = faketrial$sysRR, g = faketrial$Agegroup, p.adjust.method = 'fdr')
+pairwise.t.test(x = rawdata$`Weight Of Empty Cup`, g = rawdata$Subgroup, 
+                p.adjust.method = 'fdr')$p.value |> formatP(ndigits = 5)
 ```
 
 ## *Model: linear models 2 / multivariable*
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, eval=FALSE}
 lm2<- lm(sysRR~(Sex+Agegroup)*Treatment, 
          data=faketrial)
 lm2
@@ -241,7 +401,7 @@ Anova(lm2,type = 3)
 
 ## *Visualize 1*
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, eval=FALSE}
 ggplot(faketrial,aes(x = Treatment, y = sysRR))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
   geom_signif(comparisons = list(c(1,2)),
@@ -255,7 +415,7 @@ ggplot(faketrial,aes(x = Treatment, y = sysRR))+
 
 ## *Visualize 2*
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, eval=FALSE}
 agecolors <- c("#009E73", "#D55E00", "#0072B2")
 ggplot(faketrial,aes(x = sysRR, y = Agegroup, fill=Agegroup))+
   geom_density_ridges(alpha=.9)+
@@ -265,25 +425,32 @@ ggplot(faketrial,aes(x = sysRR, y = Agegroup, fill=Agegroup))+
 
 ## *Report*
 
--   *RMarkdown and quarto are powerful tools to create reports*
+-   *RMarkdown and quarto are powerful tools to create reports and presentations*
+
+-   Export figures: ggsave() / png() / pdf()
+
+-   Export tables: write_xlsx()
 
 -   *Package flextable provides nice features for table formatting*
 
-```{r, echo=TRUE}
+```{r, echo=TRUE,size=3, eval=FALSE}
 test_gauss |> 
   flextable() |> 
   bg(~p<=0.05,j = 5,bg = 'yellow') |> 
   set_caption('Treatment effects, measures following a normal distribution') |> 
-  add_footer_lines('Significance level is set at 0.05') 
+  add_footer_lines('Significance level is set at 0.05') |> 
+  fontsize(size = 12,part = 'footer') 
 
 ```
 
-![](flextableoutput.png)
-
-## Useful tools along the way 
+## Useful tools along the way
 
 -   Pick columns / rows
 
 -   Change format of tibble wide \<\--\> long (e.g. for repeated measures)
 
--   Regular expression
+-   Regular expressions
+
+-   paste / glue
+
+-   purrr::map_xxx
