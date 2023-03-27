@@ -34,18 +34,16 @@ format:
 -   *knitr::opts_chunk\$set()*
 
 ```{r, echo=TRUE}
-if(!require(pacman)){
-  install.packages("pacman")
-}
+if(!require(pacman)){install.packages("pacman")}
 pacman::p_load(conflicted,tidyverse,wrappedtools, readxl,car, flextable,
-               ggbeeswarm, ggsignif, ggridges, patchwork)
+               ggbeeswarm, ggsignif, ggridges, patchwork, easystats)
 
 conflicts_prefer(dplyr::filter,dplyr::select)
-
 theme_set(theme_light(base_size = 20))
-
+gdtools::register_gfont('Roboto')
 set_flextable_defaults(
-  theme_fun = theme_zebra, font.size = 14, table.layout = 'autofit',
+  theme_fun = theme_zebra, font.size = 16, font.family = 'Roboto',
+  table.layout = 'autofit',
   padding.bottom = .2, padding.top = .2, padding.left = 2, padding.right = 2)
 
 knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = NA, echo = TRUE)
@@ -54,25 +52,29 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = NA, echo = TRU
 ## Import
 
 -   *read_xlsx() / read_csv() / read_csv2()*
--   *options related to separators, number formats, ranges etc.*
--   rename() / rename_with()
+-   options related to separators, number formats, ranges etc.
+-   *rename() / rename_with()*
 
 ```{r}
-rawdata <- read_excel('Data/DOC-20230130-WA0000_.xlsx')
-colnames(rawdata)
-rawdata <- rename_with(rawdata,.fn = ~str_replace_all(cn(),
-            c('AL.+UM'= 'Cup', 'C[UA]P' = 'Cup','\\(\\w+.*\\)'='','Cup Cup'='Cup')) |> 
-              str_to_title() |> str_trim())
-cn() |> paste(collapse='; ') |> cat()
+rawdata <- read_excel('Data/DOC-20230130-WA0000_.xlsx',
+                      sheet = 1,col_names = TRUE)
+```
+## Glimpse at data: Find the problem?'
+
+```{r}
+head(rawdata,n = 3) |> flextable()
 ```
 
-## *Import: Glimpse at data*
-
-Find the problem?
-
+## Rename  
 ```{r}
-head(rawdata,n = 3) |> flextable() 
-
+colnames(rawdata)
+rawdata <- rawdata |> 
+  rename(Region=`CODE OF SAMPLE`) |> 
+  rename_with(.fn = ~str_replace_all(.,
+            c('AL.+UM'= 'Cup', 'C[UA]P' = 'Cup','\\(\\w+.*\\)'='',
+              'Cup Cup'='Cup','  '=' ')) |> 
+              str_to_title() |> str_trim())
+cn() 
 ```
 
 ## Transform
@@ -82,8 +84,12 @@ head(rawdata,n = 3) |> flextable()
 
 ```{r}
 rawdata <- rawdata |> 
-  rename(`Dry Content (%)`=`Moisture Content (%)`) |> 
-mutate(`Moisture Content (%)`=100-`Dry Content (%)`)
+mutate(`Dry Content (%)`=`Moisture Content (%)`,
+       `Moisture Content (%)`=100-`Dry Content (%)`)
+```
+
+```{r, echo=FALSE}
+head(rawdata,3)|> flextable()
 ```
 
 ## Explore / group variables
@@ -102,7 +108,7 @@ mutate(`Moisture Content (%)`=100-`Dry Content (%)`)
 
 ```{r, echo=TRUE}
 ggplot(data = rawdata,
-       aes(x = `Code Of Sample`,
+       aes(x = `Region`,
            y = `Weight Of Empty Cup`))+
   geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
   geom_beeswarm(alpha=.5)
@@ -118,7 +124,7 @@ Removal is the worst strategy possible, correct errors, think about distribution
 
 ```{r}
 ggplot(data = rawdata,
-       aes(x = `Code Of Sample`,
+       aes(x = `Region`,
            y = `Moisture Content (%)`))+
   geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
   geom_beeswarm(alpha=.5)
@@ -140,7 +146,7 @@ p_normal
 ## 
 
 ```{r}
-ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Code Of Sample`))+
+ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Region`))+
   geom_density(linewidth=3, alpha=.5)+
   ggtitle(paste('p (Shapiro)',
                 formatP(pIn = p_normal$p.value, pretext = T)))
@@ -150,20 +156,20 @@ ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Code Of Sample`))+
 
 ```{r, echo=TRUE}
 rawdata |> 
-  group_by(`Code Of Sample`) |> 
+  group_by(`Region`) |> 
   summarize(across(.cols = where(is.numeric), .fns = ksnormal)) |> 
   pivot_longer(cols = -1, names_to = 'Variable', values_to = 'pKS') |> 
-  pivot_wider(names_from = `Code Of Sample`, values_from = pKS) 
+  pivot_wider(names_from = `Region`, values_from = pKS) 
 ```
 
-## Transform subgroups?
+## Transform Subregions?
 
 ```{r}
-rawdata <- mutate(rawdata, Subgroup = case_when(
-  `Code Of Sample`=='A' & `Moisture Content (%)` > 9 ~ 'A high',
-  `Code Of Sample`=='A' & `Moisture Content (%)` <= 9 ~ 'A low',
-  `Code Of Sample`=='D' ~ 'D') |> factor())
-ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subgroup))+
+rawdata <- mutate(rawdata, Subregion = case_when(
+  `Region`=='A' & `Moisture Content (%)` > 9 ~ 'A high',
+  `Region`=='A' & `Moisture Content (%)` <= 9 ~ 'A low',
+  `Region`=='D' ~ 'D') |> factor())
+ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subregion))+
   geom_density_ridges(alpha=.5, scale=1)
 ```
 
@@ -174,17 +180,17 @@ Scale level determines what statistics are appropriate
 Typical scale levels are
 
 -   nominal/categorical/factorial/qualitative: just different groups\
-    (species, eye color)
+    (species, eye color, genotype, treatment)
 
 -   ordered categories: few groups with inherent order\
-    (quality bad\<medium\<good)
+    (quality bad\<medium\<good, pain between 0 and 10)
 
--   ordinal measures: many different values, natural order, no distribution assumption
+-   ordinal measures: many different values, natural order, no distribution assumption (satisfaction on a scale from 0 to 100)
 
 -   measures following a Normal distribution
 
 -   possibly measures from other known distributions\
-    (beta, log-normal, poisson...)
+    (beta, log-normal, poisson...), often treated as ordinal
 
 ## *Make type decision obvious/reproducible*
 
@@ -194,7 +200,7 @@ gaussvars <- FindVars(varnames = 'Weight Of Sample',
 gaussvars
 ordvars <- FindVars(c('Cup','Content'), exclude = 'Code')
 ordvars$names
-factvars <- FindVars(c('Code','group'))
+factvars <- FindVars('Region',casesensitive = FALSE)
 factvars$bticked
 ```
 
@@ -254,9 +260,11 @@ Tests require hypotheses
 
 ## Null hypothesis ?
 
--   Working hypothesis: This is what you expect! E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
+-   Working hypothesis: This is what you expect! \
+E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
 
--   Null hypothesis: This is what you test! No difference / relation, BP under therapy = BP under placebo
+-   Null hypothesis: This is what you test!\
+No difference / relation, BP under therapy = BP under placebo
 
 ## 4 possibilities:
 
@@ -301,13 +309,13 @@ Tests require hypotheses
 
 ```{r, echo=TRUE}
 #t-Test with test for equal variances
-t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Code Of Sample`, data=rawdata,
-       var.equal=var.test(formula=`Weight Of Sample Before Drying`~`Code Of Sample`, 
+t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, data=rawdata,
+       var.equal=var.test(formula=`Weight Of Sample Before Drying`~`Region`, 
                           
                           data=rawdata)$p.value>.05)
 t_out
 #Wilcoxon-Test
-wilcox.test(`Moisture Content (%)`~`Code Of Sample`, 
+wilcox.test(`Moisture Content (%)`~`Region`, 
             data = rawdata)
 ```
 
@@ -334,7 +342,7 @@ plottmp + geom_area(data = d %>% filter(x>=t_out$statistic),aes(x,y),
 ```{r, echo=TRUE}
 test_gauss <- compare2numvars(data = rawdata,
                               dep_vars = gaussvars$names,
-                              indep_var = 'Code Of Sample',
+                              indep_var = 'Region',
                               gaussian = TRUE,
                               round_p = 5)
 test_gauss |> flextable()
@@ -346,7 +354,7 @@ test_gauss |> flextable()
 ```{r}
 test_ord <- compare2numvars(data = rawdata,
                             dep_vars = ordvars$names,
-                            indep_var = 'Code Of Sample',
+                            indep_var = 'Region',
                             gaussian = FALSE,round_desc = 3)
 test_ord |> flextable() 
 ```
@@ -354,7 +362,7 @@ test_ord |> flextable()
 ## Show results
 
 ```{r}
-ggplot(rawdata, aes(x = `Code Of Sample`,y = `Weight Of Sample Before Drying`))+
+ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
   geom_beeswarm(alpha=.7, size=2,cex = 2)+
   geom_signif(comparisons = list(c(1,2)),
@@ -364,7 +372,7 @@ ggplot(rawdata, aes(x = `Code Of Sample`,y = `Weight Of Sample Before Drying`))+
 ## Re-thinking test decision?
 
 ```{r}
-ggplot(rawdata, aes(x = `Code Of Sample`,y = `Weight Of Sample Before Drying`))+
+ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
   geom_beeswarm(alpha=.7, size=2,cex = 2)+
   geom_signif(comparisons = list(c(1,2)),test = wilcox.test)
@@ -373,22 +381,22 @@ ggplot(rawdata, aes(x = `Code Of Sample`,y = `Weight Of Sample Before Drying`))+
 ## *Model: linear models 1 / univariable*
 
 ```{r}
-plottmp <- ggplot(rawdata,aes(Subgroup,`Weight Of Empty Cup`))+
+plottmp <- ggplot(rawdata,aes(Subregion,`Weight Of Empty Cup`))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
   geom_beeswarm()+
   
-  ggtitle('Are all subgroups equal?')
+  ggtitle('Are all Subregions equal?')
 print(plottmp)
 ```
 
 ## ANOVA: build model
 
 ```{r}
-rawdata |> group_by(Subgroup) |> 
+rawdata |> group_by(Subregion) |> 
   summarize(MeanCup=mean(`Weight Of Empty Cup`) |> roundR(4)) |> 
-  pivot_wider(names_from = Subgroup,values_from = MeanCup) |> 
+  pivot_wider(names_from = Subregion,values_from = MeanCup) |> 
   rename_with(~paste('Mean weight empty cups\n',.x)) |> flextable()
-lm1<- lm(`Weight Of Empty Cup`~Subgroup, data=rawdata)
+lm1<- lm(`Weight Of Empty Cup`~Subregion, data=rawdata)
 lm1
 ```
 
@@ -397,13 +405,13 @@ lm1
 ```{r}
 anova(lm1) |> broom::tidy() |> flextable()
 #post-hoc
-(posthoc_out <- pairwise.t.test(x = rawdata$`Weight Of Empty Cup`, g = rawdata$Subgroup, 
+(posthoc_out <- pairwise.t.test(x = rawdata$`Weight Of Empty Cup`, g = rawdata$Subregion, 
                 p.adjust.method = 'fdr')$p.value |> formatP(ndigits = 5))
 ```
 
-## *Model: linear models 2 / multivariable*
+<!-- ## *Model: linear models 2 / multivariable* -->
 
-```{r, echo=TRUE, eval=FALSE}
+```{r, echo=FALSE, eval=FALSE, include=FALSE}
 lm2<- lm(sysRR~(Sex+Agegroup)*Treatment, 
          data=faketrial)
 lm2
@@ -413,20 +421,19 @@ Anova(lm2,type = 3)
 ## *Visualize ANOVA*
 
 ```{r}
-plottmp <- ggplot(rawdata,aes(Subgroup,`Weight Of Empty Cup`))+
+ggplot(rawdata,aes(Subregion,`Weight Of Empty Cup`))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
   geom_beeswarm()+
   geom_signif(comparisons = list(c(1,2),c(1,3),c(2,3)),
               annotations = c(posthoc_out[,1], posthoc_out[2.2]),
               step_increase = .25)+
   scale_y_continuous(expand = expansion(mult = .1))+
-  ggtitle('All subgroups are equal,\nbut some subgroups are more equal than others')
-print(plottmp)
+  ggtitle('All Subregions are equal,\nbut some Subregions are more equal than others')
 ```
 
-## Regression
+## Regression: Scatterplot
 
-```{r, fig.width=15}
+```{r, fig.width=15, fig.height=10, echo=FALSE}
 p1 <- ggplot(rawdata,aes(`Weight Of Empty Cup`,`Weight Of Sample Before Drying`))+
   geom_point() + geom_smooth()
 p2 <- rawdata |> filter(`Weight Of Sample Before Drying`>4.5) |> 
@@ -436,6 +443,51 @@ p3 <- rawdata |> filter(`Weight Of Sample Before Drying`>4.5) |>
   ggplot(aes(`Weight Of Empty Cup`,`Moisture Content (%)`))+
   geom_point() + geom_smooth(method='lm')
 p1+p2+p3
+```
+
+## Regression: Underlying *mechanics*
+
+![](Figures/RegressionSprings.png){fig-align="center"}
+
+## Regression: Statistics
+
+```{r}
+lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, data=rawdata)
+lm_out
+```
+
+```{r, echo=FALSE, fig.width=15}
+lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`,
+             data=rawdata)
+ggplot(rawdata,aes(`Weight Of Empty Cup`,
+                   `Weight Of Sample Before Drying`))+
+  geom_point()+
+  geom_smooth(method='lm', se=FALSE)+
+  geom_abline(slope=lm_out$coefficients[2],
+              intercept = lm_out$coefficients[1],
+              linetype=3, color='darkred')+
+  scale_x_continuous(limits=c(-1,NA))+
+  scale_y_continuous(limits=c(NA,lm_out$coefficients[1]))+
+  annotate('label',x=0,y=lm_out$coefficients[1], size=7,
+           label=paste('Intercept:',roundR(lm_out$coefficients[1],4)),hjust=-.1)+
+  geom_segment(x=0,xend=1,
+               y=lm_out$coefficients[1]+lm_out$coefficients[2],
+               yend=lm_out$coefficients[1]+lm_out$coefficients[2],
+               linetype=2)+
+  geom_segment(x=0,xend=0,y=lm_out$coefficients[1],
+               yend=lm_out$coefficients[1]+lm_out$coefficients[2],
+               linetype=2,
+               arrow = arrow(length = unit(0.2, "inches"), 
+                             type='closed', ends='both'))+
+  annotate('label',x=0,y=lm_out$coefficients[1]+lm_out$coefficients[2]/2, size=7,
+           label=paste('Slope:',roundR(lm_out$coefficients[2],4)),hjust=1.1)
+```
+
+## Regression: Significance
+
+```{r}
+anova(lm_out) |> broom::tidy()
+model_parameters(lm_out)
 ```
 
 ## *Report*
@@ -461,12 +513,13 @@ test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |>
 
 ## Useful tools along the way
 
--   Pick columns / rows
+-   Pick columns / rows: select() / pull() / filter() / slice() 
 
--   Change format of tibble wide \<\--\> long (e.g. for repeated measures)
+-   Change format of tibble wide \<\--\> long (e.g. for repeated measures):\
+pivot_longer()/pivot_wider()
 
--   Regular expressions
+-   Regular expressions: str_replace() / str_detect() / str_...
 
--   paste / glue
+-   Merge text elements: paste() / str_glue()
 
--   purrr::map_xxx
+-   Apply functions: purrr::map_xxx
