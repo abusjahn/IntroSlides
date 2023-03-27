@@ -40,7 +40,7 @@ pacman::p_load(conflicted,tidyverse,wrappedtools, readxl,car, flextable,
 
 conflicts_prefer(dplyr::filter,dplyr::select)
 theme_set(theme_light(base_size = 20))
-gdtools::register_gfont('Roboto')
+gdtools::register_gfont('Roboto')# Mono')
 set_flextable_defaults(
   theme_fun = theme_zebra, font.size = 16, font.family = 'Roboto',
   table.layout = 'autofit',
@@ -59,13 +59,15 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = NA, echo = TRU
 rawdata <- read_excel('Data/DOC-20230130-WA0000_.xlsx',
                       sheet = 1,col_names = TRUE)
 ```
+
 ## Glimpse at data: Find the problem?'
 
 ```{r}
 head(rawdata,n = 3) |> flextable()
 ```
 
-## Rename  
+## Rename
+
 ```{r}
 colnames(rawdata)
 rawdata <- rawdata |> 
@@ -220,19 +222,20 @@ factvars$bticked
 
 ## *Model: Describe*
 
--   **Sample size n:** per variable, if there are missing values
+|                                                                           |                                  |
+|--------------------------------------------------------|----------------|
+| **Sample size n:** per variable, if there are NAs                         |                                  |
+| **Mean**: central tendency, the expected *typical* value                  | $$\frac{\sum{x}}{n}$$            |
+| **Variance**: measure for variability/heterogeneity of data               | $$\frac{\sum{(x-mean)^2}}{n-1}$$ |
+| **Standard deviation SD**: the *typical* weighted deviation from the mean | $$\sqrt{Var}$$                   |
 
--   **Mean**: central tendency, the expected *typical* value **sum(x)/n**
+## 
 
--   **Variance**: measure for variability/heterogeneity of data **sum(x-mean)^2^/(n-1)**
-
--   **Standard deviation SD**: based on variance, the *typical* weighted deviation from the mean **sqrt(Var)**
-
--   **Standard error of the mean SEM**: how reliable is my mean *estimate*, what would be the expected SD of means from repeated experiments? **SD/sqrt(n)**
-
--   **Median**: Split between lower/upper 50% of data
-
--   **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot
+|                                                                                                                                           |                 |
+|--------------------------------------------------------|----------------|
+| **Standard error of the mean SEM**: how reliable is the mean *estimate*, what would be the expected SD of means from repeated experiments? | $$\frac{SD}{\sqrt{n}}$$ |
+| **Median**: Split between lower/upper 50% of data | |
+| **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot | various computational approaches |
 
 ## 
 
@@ -260,11 +263,11 @@ Tests require hypotheses
 
 ## Null hypothesis ?
 
--   Working hypothesis: This is what you expect! \
-E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
+-   Working hypothesis: This is what you expect!\
+    E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
 
 -   Null hypothesis: This is what you test!\
-No difference / relation, BP under therapy = BP under placebo
+    No difference / relation, BP under therapy = BP under placebo
 
 ## 4 possibilities:
 
@@ -513,12 +516,12 @@ test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |>
 
 ## Useful tools along the way
 
--   Pick columns / rows: select() / pull() / filter() / slice() 
+-   Pick columns / rows: select() / pull() / filter() / slice()
 
 -   Change format of tibble wide \<\--\> long (e.g. for repeated measures):\
-pivot_longer()/pivot_wider()
+    pivot_longer()/pivot_wider()
 
--   Regular expressions: str_replace() / str_detect() / str_...
+-   Regular expressions: str_replace() / str_detect() / str\_...
 
 -   Merge text elements: paste() / str_glue()
 
