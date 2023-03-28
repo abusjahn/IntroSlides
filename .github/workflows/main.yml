@@ -1,7 +1,7 @@
 name: 'Render Quarto project'
 author: 'Carlos Scheidegger'
 description: 'This action will render an existing quarto project'
-inputs: 'IntroSlides.qmd'
+inputs: IntroSlides.qmd
   to:
     description: 'Format to render output. Use "all" to generate all outputs, when eg rendering a book in HTML and PDF'
     required: false
