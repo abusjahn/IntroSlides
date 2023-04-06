@@ -1,8 +1,9 @@
 ---
-# src: plugin/math/math.js
+src: plugin/math/math.js
 title: "IntroSlides with focus on statistics"
 format: 
   revealjs:
+    # theme: league
     slide-number: c/t
     width: 1200
     height: 900
@@ -42,7 +43,7 @@ conflicts_prefer(dplyr::filter,dplyr::select)
 theme_set(theme_light(base_size = 20))
 gdtools::register_gfont('Roboto')# Mono')
 set_flextable_defaults(
-  theme_fun = theme_zebra, font.size = 16, font.family = 'Roboto',
+  theme_fun = theme_zebra, font.size = 18, font.family = 'Roboto',
   table.layout = 'autofit',
   padding.bottom = .2, padding.top = .2, padding.left = 2, padding.right = 2)
 
@@ -60,10 +61,11 @@ rawdata <- read_excel('Data/DOC-20230130-WA0000_.xlsx',
                       sheet = 1,col_names = TRUE)
 ```
 
-## Glimpse at data: Find the problem?'
+## Glimpse at data: Find the problems?
 
 ```{r}
-head(rawdata,n = 3) |> flextable()
+head(rawdata,n = 15) |> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
 ```
 
 ## Rename
@@ -73,9 +75,9 @@ colnames(rawdata)
 rawdata <- rawdata |> 
   rename(Region=`CODE OF SAMPLE`) |> 
   rename_with(.fn = ~str_replace_all(.,
-            c('AL.+UM'= 'Cup', 'C[UA]P' = 'Cup','\\(\\w+.*\\)'='',
-              'Cup Cup'='Cup','  '=' ')) |> 
-              str_to_title() |> str_trim())
+                                     c('AL.+UM'= 'Cup', 'C[UA]P' = 'Cup','\\(\\w+.*\\)'='',
+                                       'Cup Cup'='Cup','  '=' ')) |> 
+                str_to_title() |> str_trim())
 cn() 
 ```
 
@@ -86,12 +88,17 @@ cn()
 
 ```{r}
 rawdata <- rawdata |> 
-mutate(`Dry Content (%)`=`Moisture Content (%)`,
-       `Moisture Content (%)`=100-`Dry Content (%)`)
+  mutate(
+    `Weight Of Sample After Drying`=`Weigth Of Cup + Sample After Drying`-
+      `Weight Of Empty Cup`,
+    `Dry Content (%)`=`Weight Of Sample After Drying`*100/
+      `Weight Of Sample Before Drying`,
+    `Moisture Content (%)`=100-`Dry Content (%)`)
 ```
 
 ```{r, echo=FALSE}
-head(rawdata,3)|> flextable()
+head(rawdata,5)|> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
 ```
 
 ## Explore / group variables
@@ -168,8 +175,8 @@ rawdata |>
 
 ```{r}
 rawdata <- mutate(rawdata, Subregion = case_when(
-  `Region`=='A' & `Moisture Content (%)` > 9 ~ 'A high',
-  `Region`=='A' & `Moisture Content (%)` <= 9 ~ 'A low',
+  `Region`=='A' & `Moisture Content (%)` > 90 ~ 'A high',
+  `Region`=='A' & `Moisture Content (%)` <= 90 ~ 'A low',
   `Region`=='D' ~ 'D') |> factor())
 ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subregion))+
   geom_density_ridges(alpha=.5, scale=1)
@@ -182,17 +189,17 @@ Scale level determines what statistics are appropriate
 Typical scale levels are
 
 -   nominal/categorical/factorial/qualitative: just different groups\
-    (species, eye color, genotype, treatment)
+(species, eye color, genotype, treatment)
 
 -   ordered categories: few groups with inherent order\
-    (quality bad\<medium\<good, pain between 0 and 10)
+(quality bad\<medium\<good, pain between 0 and 10)
 
 -   ordinal measures: many different values, natural order, no distribution assumption (satisfaction on a scale from 0 to 100)
 
 -   measures following a Normal distribution
 
 -   possibly measures from other known distributions\
-    (beta, log-normal, poisson...), often treated as ordinal
+(beta, log-normal, poisson...), often treated as ordinal
 
 ## *Make type decision obvious/reproducible*
 
@@ -259,15 +266,15 @@ desc_ord
 
 Tests require hypotheses
 
-![](Figures/guestimate.gif){fig-align="center" width="500"}
+![](Figures/guestimate.gif){fig-align="center"}
 
 ## Null hypothesis ?
 
 -   Working hypothesis: This is what you expect!\
-    E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
+E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
 
 -   Null hypothesis: This is what you test!\
-    No difference / relation, BP under therapy = BP under placebo
+No difference / relation, BP under therapy = BP under placebo
 
 ## 4 possibilities:
 
@@ -296,7 +303,7 @@ Tests require hypotheses
 -   1 or 2 (independent or dependent) samples with/without equal variances
 
 -   how big is the mean difference relative to uncertainty?\
-    t = (mean~1~ - mean~2~)/SEM
+t = (mean~1~ - mean~2~)/SEM
 
 -   t follows a t-distribution, allows estimation of probability of t under the NULL hypothesis
 
@@ -312,10 +319,11 @@ Tests require hypotheses
 
 ```{r, echo=TRUE}
 #t-Test with test for equal variances
-t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, data=rawdata,
-       var.equal=var.test(formula=`Weight Of Sample Before Drying`~`Region`, 
-                          
-                          data=rawdata)$p.value>.05)
+t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, 
+                data=rawdata,
+                var.equal=var.test(
+                  formula=`Weight Of Sample Before Drying`~`Region`, 
+                  data=rawdata)$p.value>.05)
 t_out
 #Wilcoxon-Test
 wilcox.test(`Moisture Content (%)`~`Region`, 
@@ -330,14 +338,16 @@ plottmp <- ggplot(tdata,aes(t,y))+geom_line()
 d <- ggplot_build(plottmp)$data[[1]]
 plottmp + geom_area(data = d %>% filter(x>=t_out$statistic),aes(x,y),
                     fill='orangered',alpha=.5)+
-          geom_area(data = d %>% filter(x<=-t_out$statistic),aes(x,y),
-                    fill='orangered',alpha=.5)+
-          geom_vline(xintercept = t_out$statistic, linetype=3)+
-          ggtitle(paste0('from t-test: t = ',roundR(t_out$statistic), 
-                         ', p ',formatP(t_out$p.value, pretext = T)))+
-          annotate('label', x=t_out$statistic,y=.0,
-                   label=paste('area = ', roundR(pt(t_out$statistic,t_out$parameter,lower.tail = F))), hjust=-0.1, vjust=-0.1)
-  
+  geom_area(data = d %>% filter(x<=-t_out$statistic),aes(x,y),
+            fill='orangered',alpha=.5)+
+  geom_vline(xintercept = t_out$statistic, linetype=3)+
+  ggtitle(paste0('from t-test: t = ',roundR(t_out$statistic), 
+                 ', p ',formatP(t_out$p.value, pretext = T)))+
+  annotate('label', x=t_out$statistic,y=.0,
+           label=paste('area = ', 
+                       roundR(pt(t_out$statistic,t_out$parameter,lower.tail = F))), 
+           hjust=-0.1, vjust=-0.1)
+
 ```
 
 ## *Model: Test 2 / multiple variables*
@@ -348,7 +358,8 @@ test_gauss <- compare2numvars(data = rawdata,
                               indep_var = 'Region',
                               gaussian = TRUE,
                               round_p = 5)
-test_gauss |> flextable()
+test_gauss |> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
 
 ```
 
@@ -359,7 +370,8 @@ test_ord <- compare2numvars(data = rawdata,
                             dep_vars = ordvars$names,
                             indep_var = 'Region',
                             gaussian = FALSE,round_desc = 3)
-test_ord |> flextable() 
+test_ord |> flextable() |> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
 ```
 
 ## Show results
@@ -398,7 +410,8 @@ print(plottmp)
 rawdata |> group_by(Subregion) |> 
   summarize(MeanCup=mean(`Weight Of Empty Cup`) |> roundR(4)) |> 
   pivot_wider(names_from = Subregion,values_from = MeanCup) |> 
-  rename_with(~paste('Mean weight empty cups\n',.x)) |> flextable()
+  rename_with(~paste('Mean weight empty cups\n',.x)) |> flextable()|>
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
 lm1<- lm(`Weight Of Empty Cup`~Subregion, data=rawdata)
 lm1
 ```
@@ -406,10 +419,13 @@ lm1
 ## ANOVA: get p-values
 
 ```{r}
-anova(lm1) |> broom::tidy() |> flextable()
+anova(lm1) |> broom::tidy() |> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
 #post-hoc
-(posthoc_out <- pairwise.t.test(x = rawdata$`Weight Of Empty Cup`, g = rawdata$Subregion, 
-                p.adjust.method = 'fdr')$p.value |> formatP(ndigits = 5))
+(posthoc_out <- pairwise.t.test(x = rawdata$`Weight Of Empty Cup`, 
+                                g = rawdata$Subregion, 
+                                p.adjust.method = 'fdr')$p.value |> 
+    formatP(ndigits = 5))
 ```
 
 <!-- ## *Model: linear models 2 / multivariable* -->
@@ -455,7 +471,8 @@ p1+p2+p3
 ## Regression: Statistics
 
 ```{r}
-lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, data=rawdata)
+lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, 
+             data=rawdata)
 lm_out
 ```
 
@@ -507,7 +524,9 @@ model_parameters(lm_out)
 
 ```{r, echo=TRUE,size=3}
 test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |> 
-  flextable() |> italic(~p<=0.05,j = 1) |> bg(~p<=0.05,j = 4,bg = 'yellow') |> 
+  flextable() |> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')|> 
+  italic(~p<=0.05,j = 1) |> bg(~p<=0.05,j = 4,bg = 'yellow') |> 
   set_caption('Treatment effects, measures following a normal distribution') |> 
   add_footer_lines('Significance level is set at 0.05') |> 
   fontsize(size = 12,part = 'footer') 
@@ -519,7 +538,7 @@ test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |>
 -   Pick columns / rows: select() / pull() / filter() / slice()
 
 -   Change format of tibble wide \<\--\> long (e.g. for repeated measures):\
-    pivot_longer()/pivot_wider()
+pivot_longer()/pivot_wider()
 
 -   Regular expressions: str_replace() / str_detect() / str\_...
 
