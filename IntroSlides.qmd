@@ -202,7 +202,7 @@ Typical scale levels are
 
 -   ordinal measures: many different values, natural order, no distribution assumption (satisfaction on a scale from 0 to 100)
 
--   measures NOT following a Normal distribution
+-   measures following a Normal distribution
 
 -   possibly measures from other known distributions\
 (beta, log-normal, poisson...), often treated as ordinal
