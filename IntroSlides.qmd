@@ -394,6 +394,9 @@ t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, data=rawdata,
 ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
   geom_beeswarm(alpha=.7, size=2,cex = 2)+
+  annotate(geom = 'label',x=2,y=4.2,
+           label='extreme value -> high SD -> high SEM ->low t-statistic->high p-value',
+           hjust=0.8,vjust=0)+
   geom_signif(comparisons = list(c(1,2)),
               annotations = paste('p',formatP(t_out$p.value)))
 ```
