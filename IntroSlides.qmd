@@ -35,7 +35,7 @@ format:
 -   *knitr::opts_chunk\$set()*
 
 ```{r, echo=TRUE}
-if(!require(pacman)){install.packages("pacman")}
+if(!requireNamespace("pacman")){install.packages("pacman")}
 pacman::p_load(conflicted,tidyverse,wrappedtools, readxl,car, flextable,
                ggbeeswarm, ggsignif, ggridges, patchwork, easystats)
 
@@ -176,7 +176,6 @@ ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Subregion`))+
   unite('p(Normal)',sep = ': p=') |> pull(1) |> paste(collapse = '; '))
 ```
 
-
 ## *Explore: Normal distribution 2*
 
 ```{r, echo=TRUE}
@@ -187,7 +186,6 @@ rawdata |>
   pivot_wider(names_from = `Subregion`, values_from = pKS) 
 ```
 
-
 ## *Explore: Group variables by type/distribution*
 
 Scale level determines what statistics are appropriate
@@ -195,17 +193,17 @@ Scale level determines what statistics are appropriate
 Typical scale levels are
 
 -   nominal/categorical/factorial/qualitative: just different groups\
-(species, eye color, genotype, treatment)
+    (species, eye color, genotype, treatment)
 
 -   ordered categories: few groups with inherent order\
-(quality bad\<medium\<good, pain between 0 and 10)
+    (quality bad\<medium\<good, pain between 0 and 10)
 
 -   ordinal measures: many different values, natural order, no distribution assumption (satisfaction on a scale from 0 to 100)
 
 -   measures following a Normal distribution
 
 -   possibly measures from other known distributions\
-(beta, log-normal, poisson...), often treated as ordinal
+    (beta, log-normal, poisson...), often treated as ordinal
 
 ## *Make type decision obvious/reproducible*
 
@@ -236,7 +234,7 @@ factvars$bticked
 ## *Model: Describe*
 
 |                                                                           |                                  |
-|--------------------------------------------------------|----------------|
+|-----------------------------------------------------|-------------------|
 | **Sample size n:** per variable, if there are NAs                         |                                  |
 | **Mean**: central tendency, the expected *typical* value                  | $$\frac{\sum{x}}{n}$$            |
 | **Variance**: measure for variability/heterogeneity of data               | $$\frac{\sum{(x-mean)^2}}{n-1}$$ |
@@ -244,11 +242,11 @@ factvars$bticked
 
 ## 
 
-|                                                                                                                                           |                 |
-|--------------------------------------------------------|----------------|
-| **Standard error of the mean SEM**: how reliable is the mean *estimate*, what would be the expected SD of means from repeated experiments? | $$\frac{SD}{\sqrt{n}}$$ |
-| **Median**: Split between lower/upper 50% of data | |
-| **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot | various computational approaches |
+|                                                                                                                                            |                                  |
+|-----------------------------------------------------|-------------------|
+| **Standard error of the mean SEM**: how reliable is the mean *estimate*, what would be the expected SD of means from repeated experiments? | $$\frac{SD}{\sqrt{n}}$$          |
+| **Median**: Split between lower/upper 50% of data                                                                                          |                                  |
+| **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot                            | various computational approaches |
 
 ## 
 
@@ -277,10 +275,10 @@ Tests require hypotheses
 ## Null hypothesis ?
 
 -   Working hypothesis: This is what you expect!\
-E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
+    E.g. treatment is lowering blood pressure more than placebo, transgenic animals become obese, bio reactor A is more efficient than B, concentration of substance is correlated with speed of reaction ...
 
 -   Null hypothesis: This is what you test!\
-No difference / relation, BP under therapy = BP under placebo
+    No difference / relation, BP under therapy = BP under placebo
 
 ## 4 possibilities:
 
@@ -309,7 +307,7 @@ No difference / relation, BP under therapy = BP under placebo
 -   1 or 2 (independent or dependent) samples with/without equal variances
 
 -   how big is the mean difference relative to uncertainty?\
-t = (mean~1~ - mean~2~)/SEM
+    t = (mean~1~ - mean~2~)/SEM
 
 -   t follows a t-distribution, allows estimation of probability of t under the NULL hypothesis
 
@@ -555,7 +553,7 @@ test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |>
 -   Pick columns / rows: select() / pull() / filter() / slice()
 
 -   Change format of tibble wide \<\--\> long (e.g. for repeated measures):\
-pivot_longer()/pivot_wider()
+    pivot_longer()/pivot_wider()
 
 -   Regular expressions: str_replace() / str_detect() / str\_...
 
