@@ -74,10 +74,12 @@ head(rawdata,n = 15) |> flextable()|>
 colnames(rawdata)
 rawdata <- rawdata |> 
   rename(Region=`CODE OF SAMPLE`) |> 
-  rename_with(.fn = ~str_replace_all(.,
-                                     c('AL.+UM'= 'Cup', 'C[UA]P' = 'Cup','\\(\\w+.*\\)'='',
-                                       'Cup Cup'='Cup','  '=' ')) |> 
-                str_to_title() |> str_trim())
+  rename_with(.fn = ~str_replace_all(
+    .,
+    c("GTH"="GHT", 'AL.+UM'= 'Cup', 
+      'C[UA]P' = 'Cup','\\(\\w+.*\\)'='',
+      'Cup Cup'='Cup','  '=' ')) |> 
+      str_to_title() |> str_trim())
 cn() 
 ```
 
@@ -89,7 +91,10 @@ cn()
 ```{r}
 rawdata <- rawdata |> 
   mutate(
-    `Weight Of Sample After Drying`=`Weigth Of Cup + Sample After Drying`-
+    `Code Of Cup`=case_when(
+      is.na(`Code Of Cup`)~paste("sample",row_number()),
+      .default = `Code Of Cup`),
+    `Weight Of Sample After Drying`=`Weight Of Cup + Sample After Drying`-
       `Weight Of Empty Cup`,
     `Dry Content (%)`=`Weight Of Sample After Drying`*100/
       `Weight Of Sample Before Drying`,
@@ -111,7 +116,7 @@ head(rawdata,5)|> flextable()|>
 ### *Classify scale level / distribution*
 
 -   *gaussvars / ordvars / factvars, possibly more...*
--   *Store variables accordingly, e.g. FindVars()*
+-   *Store variables accordingly, e.g. ColSeeker()*
 
 ## *Explore: Outlier*
 
@@ -208,12 +213,11 @@ Typical scale levels are
 ## *Make type decision obvious/reproducible*
 
 ```{r, echo=TRUE}
-gaussvars <- FindVars(varnames = c('Weight Of Sample','Content'), 
-                      allnames = cn(rawdata))
+gaussvars <- ColSeeker(data=rawdata,namepattern = c('Weight Of Sample','Content'))
 gaussvars
-ordvars <- FindVars(c('Cup'), exclude = 'Code')
+ordvars <- ColSeeker(namepattern='Cup', exclude = 'Code')
 ordvars$names
-factvars <- FindVars('egion',casesensitive = FALSE)
+factvars <- ColSeeker(namepattern='region',casesensitive = FALSE)
 factvars$bticked
 ```
 
