@@ -148,12 +148,17 @@ ggplot(data = rawdata,
 
 ```{r}
 rawdata <- mutate(rawdata, Subregion = case_when(
+  `Region`=='D' ~ 'D',
   `Region`=='A' & `Moisture Content (%)` > 90 ~ 'A high',
-  `Region`=='A' & `Moisture Content (%)` <= 90 ~ 'A low',
-  `Region`=='D' ~ 'D') |> factor())
+  `Region`=='A' & `Moisture Content (%)` <= 90 ~ 'A low') |>
+    factor())
+# Test for Region A is redundant here, but more verbose.
+
 ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subregion))+
   geom_density_ridges(alpha=.5, scale=1)
 ```
+
+
 
 ## *Explore: Normal distribution 1*
 
@@ -186,9 +191,13 @@ ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Subregion`))+
 ```{r, echo=TRUE}
 rawdata |> 
   group_by(`Subregion`) |> 
-  summarize(across(.cols = where(is.numeric), .fns = ksnormal)) |> 
-  pivot_longer(cols = -1, names_to = 'Variable', values_to = 'pKS') |> 
-  pivot_wider(names_from = `Subregion`, values_from = pKS) 
+  summarize(across(.cols = where(is.numeric), 
+                   .fns = ~ksnormal(.x) |> #computing p-value
+                     formatP(mark = T))) |> #formatting p-value
+  pivot_longer(cols = -1, names_to = 'Variable', 
+               values_to = 'pKS') |> #intermediate, all p-values in 1 column
+  pivot_wider(names_from = `Subregion`, 
+              values_from = pKS) #spreading across subregions
 ```
 
 ## *Explore: Group variables by type/distribution*
