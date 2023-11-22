@@ -533,12 +533,16 @@ lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`,
 lm_out
 
 ```
+## *Regression: Visualize*
 
 ```{r, echo=FALSE, fig.width=15}
 ggplot(rawdata,aes(`Weight Of Empty Cup`,
                    `Weight Of Sample Before Drying`))+
-  geom_point()+
-  geom_smooth(method='lm', se=FALSE)+
+  geom_point(aes(color=`Weight Of Sample Before Drying`>4.5))+
+  scale_color_manual(values=c('darkred','darkolivegreen'))+
+  guides(color='none')+
+  geom_smooth(data = rawdata |> filter(`Weight Of Sample Before Drying`>4.5),
+              method='lm', se=FALSE)+
   geom_abline(slope=lm_out$coefficients[2],
               intercept = lm_out$coefficients[1],
               linetype=3, color='darkred')+
