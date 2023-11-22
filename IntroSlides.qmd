@@ -523,14 +523,18 @@ p1+p2+p3
 ## Regression: Statistics
 
 ```{r}
-lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, 
+lm_out0 <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, 
              data=rawdata)
+lm_out0
+
+# filtering outlier
+lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, 
+             data=rawdata |> filter(`Weight Of Sample Before Drying`>4.5))
 lm_out
+
 ```
 
 ```{r, echo=FALSE, fig.width=15}
-lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`,
-             data=rawdata)
 ggplot(rawdata,aes(`Weight Of Empty Cup`,
                    `Weight Of Sample Before Drying`))+
   geom_point()+
