@@ -121,11 +121,13 @@ head(rawdata,5)|> flextable()|>
 ## *Explore: Outlier*
 
 ```{r, echo=TRUE}
-ggplot(data = rawdata,
-       aes(x = `Region`,
-           y = `Weight Of Empty Cup`))+
+p1 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Empty Cup`))+
   geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
-  geom_beeswarm(alpha=.5)
+  geom_beeswarm(alpha=.5, color="darkolivegreen")
+p2 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Sample Before Drying`))+
+  geom_boxplot(outlier.alpha = 0) + 
+  geom_beeswarm(alpha=.5, color="darkolivegreen")
+p1|p2
 ```
 
 ## Handle outliers?
@@ -141,7 +143,7 @@ ggplot(data = rawdata,
        aes(x = `Region`,
            y = `Moisture Content (%)`))+
   geom_boxplot(outlier.alpha = 0) + 
-  geom_beeswarm(alpha=.5)
+  geom_beeswarm(alpha=.5, color="darkolivegreen")
 ```
 
 ## Transform Subregions?
@@ -222,9 +224,9 @@ Typical scale levels are
 ## *Make type decision obvious/reproducible*
 
 ```{r, echo=TRUE}
-gaussvars <- ColSeeker(data=rawdata,namepattern = c('Weight Of Sample','Content'))
+gaussvars <- ColSeeker(data=rawdata,namepattern = c('Weight','Content'))
 gaussvars
-ordvars <- ColSeeker(namepattern='Cup', exclude = 'Code')
+ordvars <- ColSeeker(namepattern='Weight.+Sample', exclude = 'After')
 ordvars$names
 factvars <- ColSeeker(namepattern='region',casesensitive = FALSE)
 factvars$bticked
@@ -404,7 +406,7 @@ t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, data=rawdata,
 ```{r}
 ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
-  geom_beeswarm(alpha=.7, size=2,cex = 2)+
+  geom_beeswarm(alpha=.7, size=2,cex = 2, color="darkolivegreen")+
   annotate(geom = 'label',x=2,y=4.2,
            label='extreme value -> high SD -> high SEM ->low t-statistic->high p-value',
            hjust=0.8,vjust=0)+
@@ -417,7 +419,7 @@ ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
 ```{r}
 ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
-  geom_beeswarm(alpha=.7, size=2,cex = 2)+
+  geom_beeswarm(alpha=.7, size=2,cex = 2, color="darkolivegreen")+
   geom_signif(comparisons = list(c(1,2)),test = wilcox.test)
 ```
 
@@ -426,7 +428,7 @@ ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
 ```{r}
 plottmp <- ggplot(rawdata,aes(Subregion,`Moisture Content (%)`))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
-  geom_beeswarm()+
+  geom_beeswarm(color="darkolivegreen")+
   
   ggtitle('Are all Subregions equal?')
 print(plottmp)
@@ -470,7 +472,7 @@ Anova(lm2,type = 3)
 ```{r}
 ggplot(rawdata,aes(Subregion,`Moisture Content (%)`))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
-  geom_beeswarm()+
+  geom_beeswarm(color="darkolivegreen")+
   geom_signif(comparisons = list(c(1,2),c(1,3),c(2,3)),
               annotations = c(posthoc_out[,1], posthoc_out[2,2]),
               step_increase = .25)+
