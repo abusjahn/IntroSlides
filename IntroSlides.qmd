@@ -165,8 +165,6 @@ ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subregion))+
   geom_density_ridges(alpha=.5, scale=1)
 ```
 
-
-
 ## *Explore: Normal distribution 1*
 
 -   Gaussian Normal distribution is required for many statistical procedures
@@ -254,7 +252,7 @@ factvars$bticked
 ## *Model: Describe*
 
 |                                                                           |                                  |
-|-----------------------------------------------------|-------------------|
+|---------------------------------------------------------------------------|----------------------------------|
 | **Sample size n:** per variable, if there are NAs                         |                                  |
 | **Mean**: central tendency, the expected *typical* value                  | $$\frac{\sum{x}}{n}$$            |
 | **Variance**: measure for variability/heterogeneity of data               | $$\frac{\sum{(x-mean)^2}}{n-1}$$ |
@@ -263,7 +261,7 @@ factvars$bticked
 ## 
 
 |                                                                                                                                            |                                  |
-|-----------------------------------------------------|-------------------|
+|--------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------|
 | **Standard error of the mean SEM**: how reliable is the mean *estimate*, what would be the expected SD of means from repeated experiments? | $$\frac{SD}{\sqrt{n}}$$          |
 | **Median**: Split between lower/upper 50% of data                                                                                          |                                  |
 | **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot                            | various computational approaches |
@@ -533,6 +531,7 @@ lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`,
 lm_out
 
 ```
+
 ## *Regression: Visualize*
 
 ```{r, echo=FALSE, fig.width=15}
@@ -597,7 +596,7 @@ test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |>
 
 -   Pick columns / rows: select() / pull() / filter() / slice()
 
--   Change format of tibble wide \<\--\> long (e.g. for repeated measures):\
+-   Change format of tibble wide \<--\> long (e.g. for repeated measures):\
     pivot_longer()/pivot_wider()
 
 -   Regular expressions: str_replace() / str_detect() / str\_...
