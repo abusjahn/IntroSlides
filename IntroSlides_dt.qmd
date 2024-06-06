@@ -1,0 +1,606 @@
+---
+src: plugin/math/math.js
+title: "Einführung mit Fokus auf Statistik"
+format: 
+  revealjs:
+    # theme: league
+    slide-number: c/t
+    width: 1200
+    height: 900
+    transition: slide
+    cap-location: bottom
+    fig-align: center
+    fig-format: png 
+    fig-dpi: 300
+    center: false
+    chalkboard: true
+---
+
+## Etappen im Analyseablauf
+
+1.  *Definition der Arbeitsumgebung*
+2.  *Import der Daten*
+3.  *Transformationen der Daten*
+4.  *Exploration (allgemein/Extremwerte/Verteilung) (zurück auf 3?)*
+5.  *Klassifikation von Skalenniveaus / Verteilungen (basierend auf 3/4)*
+6.  *Beschreibende Statistik*
+7.  *Test / Modellierung (kann Schritt 6 beinhalten)*
+8.  *Reporterstellung*
+
+## Definition der Arbeitsumgebung
+
+-   *Aktivierung benötigter Pakete: library() / pacman::p_load()*
+-   *ggplot Themen: theme_set() / theme_update()*
+-   *flextable Einstellungen: set_flextable_defaults()*
+-   *knitr::opts_chunk\$set()*
+
+```{r, echo=TRUE}
+if(!requireNamespace("pacman")){install.packages("pacman")}
+pacman::p_load(conflicted,tidyverse,wrappedtools, readxl,car, flextable,
+               ggbeeswarm, ggsignif, ggridges, patchwork,ggrepel, easystats)
+
+conflicts_prefer(dplyr::filter,dplyr::select)
+theme_set(theme_light(base_size = 20))
+gdtools::register_gfont('Roboto')# Mono')
+set_flextable_defaults(
+  theme_fun = theme_zebra, font.size = 18, font.family = 'Roboto',
+  table.layout = 'autofit',
+  padding.bottom = .2, padding.top = .2, padding.left = 2, padding.right = 2)
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = NA, echo = TRUE)
+```
+
+## Import
+
+-   *read_xlsx() / read_csv() / read_csv2()*
+-   Optionen beziehen sich auf Trennzeichen, Zahlenformate, Bereiche etc.
+-   *rename() / rename_with()*
+
+```{r}
+rawdata <- read_excel('Data/DOC-20230130-WA0000_.xlsx',
+                      sheet = 1,col_names = TRUE)
+```
+
+## Erster Blick auf die Daten: Problemsuche
+
+```{r}
+head(rawdata,n = 15) |> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
+```
+
+## Umbenennen von Variablen
+
+```{r}
+colnames(rawdata)
+rawdata <- rawdata |> 
+  rename(Region=`CODE OF SAMPLE`) |> 
+  rename_with(.fn = ~str_replace_all(
+    .,
+    c("GTH"="GHT", 'AL.+UM'= 'Cup', 
+      'C[UA]P' = 'Cup','\\(\\w+.*\\)'='',
+      'Cup Cup'='Cup','  '=' ')) |> 
+      str_to_title() |> str_trim())
+cn() 
+```
+
+## Transformationen
+
+-   *Ändern oder Erzeugen von Spalten mit mutate() / mutate(across())*
+-   *z.B. für log-Transformation, Erzeugen von Faktoren, Text -Umkodierung*
+
+```{r}
+rawdata <- rawdata |> 
+  mutate(
+    `Code Of Cup`=case_when(
+      is.na(`Code Of Cup`)~paste("sample",row_number()),
+      .default = `Code Of Cup`),
+    `Weight Of Sample After Drying`=`Weight Of Cup + Sample After Drying`-
+      `Weight Of Empty Cup`,
+    `Dry Content (%)`=`Weight Of Sample After Drying`*100/
+      `Weight Of Sample Before Drying`,
+    `Moisture Content (%)`=100-`Dry Content (%)`)
+```
+
+```{r, echo=FALSE}
+head(rawdata,5)|> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
+```
+
+## Exploration / Variablengruppierung
+
+### *Exploration (allgemein/Extremwerte/Verteilung)*
+
+-   *ggplot()+geom_boxplot() / geom_beeswarm() / geom_density()*
+-   *ks.test() / ksnormal() / shapiro.test()*
+
+### *Klassifikation nach Skalenniveau / Verteilung*
+
+-   *gaussvars / ordvars / factvars, possibly more...*
+-   *Speichern von Variablengruppen, z.B. ColSeeker()*
+
+## *Exploration: Extremwerte*
+
+```{r, echo=TRUE}
+p1 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Empty Cup`))+
+  geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
+  geom_beeswarm(alpha=.5, color="darkolivegreen")
+p2 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Sample Before Drying`))+
+  geom_boxplot(outlier.alpha = 0) + 
+  geom_beeswarm(alpha=.5, color="darkolivegreen")+
+  geom_text_repel(data=. %>% group_by(Region) %>%  
+             filter(`Weight Of Sample Before Drying` %in%
+                      boxplot.stats(`Weight Of Sample Before Drying`, coef=1.5)$out),
+           aes(label=`Code Of Cup` , y=`Weight Of Sample Before Drying`), 
+           nudge_x=0.1, colour="red", size=3, hjust=0) 
+p1|p2
+```
+
+## Behandlung Extremwerte/Ausreißer?
+
+Entfernen ist die schlechteste Option, Korrektur von Eingabefehlern, Ändern der Verteilung oder Winsorizierung...
+
+![](Figures/outlier.jpg)
+
+## *Exploration: Unerwartetes*
+
+```{r}
+ggplot(data = rawdata,
+       aes(x = `Region`,
+           y = `Moisture Content (%)`))+
+  geom_boxplot(outlier.alpha = 0) + 
+  geom_beeswarm(alpha=.5, color="darkolivegreen")
+```
+
+## Transformation in Subregionen?
+
+```{r}
+rawdata <- mutate(rawdata, Subregion = case_when(
+  `Region`=='D' ~ 'D',
+  `Region`=='A' & `Moisture Content (%)` > 90 ~ 'A high',
+  `Region`=='A' & `Moisture Content (%)` <= 90 ~ 'A low') |>
+    factor())
+# Test for Region A is redundant here, but more verbose.
+
+ggplot(data = rawdata,aes(x = `Moisture Content (%)`,y=Subregion))+
+  geom_density_ridges(alpha=.5, scale=1)
+```
+
+## *Exploration: Normalverteilung 1*
+
+-   Gausssche Glockenkurve / Normalverteilung ist Voraussetzung vieler statistischen Verfahren
+
+-   Übliche Tests sind graphische Exploration, Shapiro-Wilk-Test Und Kolmogorov-Smirnov-Test
+
+```{r, echo=TRUE}
+p_normal <- 
+  shapiro.test(x = rawdata$`Moisture Content (%)`)
+p_normal
+
+```
+
+## 
+
+```{r}
+
+ggplot(data = rawdata,aes(x = `Moisture Content (%)`,fill=`Subregion`))+
+  geom_density(linewidth=3, alpha=.5)+
+  labs(title = paste('p (Shapiro) global',
+                formatP(pIn = p_normal$p.value, pretext = T)),
+       subtitle = rawdata |> group_by(Subregion) |> 
+  summarize(pNormal=shapiro.test(`Moisture Content (%)`)$p.value |> formatP()) |> 
+  unite('p(Normal)',sep = ': p=') |> pull(1) |> paste(collapse = '; '))
+```
+
+## *Exploration: Normalverteilung 2*
+
+```{r, echo=TRUE}
+rawdata |> 
+  group_by(`Subregion`) |> 
+  summarize(across(.cols = where(is.numeric), 
+                   .fns = ~ksnormal(.x) |> #computing p-value
+                     formatP(mark = T))) |> #formatting p-value
+  pivot_longer(cols = -1, names_to = 'Variable', 
+               values_to = 'pKS') |> #intermediate, all p-values in 1 column
+  pivot_wider(names_from = `Subregion`, 
+              values_from = pKS) #spreading across subregions
+```
+
+## *Exploration: Gruppierung der Variablen nach Typ/Verteilung*
+
+Skalenniveau bestimmt angemessene Statistiken
+
+Typische Skalenniveaus sind
+
+-   nominal/kategorial/faktoriell/qualitativ: nur Unterschiede\
+    (Spezies, Augenfarbe, Genotyp, Behandlung)
+
+-   geordnete Kategorien: wenige Gruppen/Werte mit natürlicher Rangodnung\
+    (Qualität schlecht\<mittel\<gut, Schmerz zwischen 0 und 10)
+
+-   ordinale Messwerte: viele unterschiedliche Werte, natürliche Rangordnung, keine Annahme über die Verteilung (Zufriedenheit auf Skala von 0 bis 100, Blutverlust)
+
+-   Messwerte mit Normalverteilung
+
+-   möglicherweise auch Messwerte mit anderen bekannten Verteilungen\
+    (beta, log-normal, poisson...), oft einfach als ordinal analysiert
+
+## *Type Entscheidung dokumentieren / reproduzierbar*
+
+```{r, echo=TRUE}
+gaussvars <- ColSeeker(data=rawdata,namepattern = c('Weight','Content'))
+gaussvars
+ordvars <- ColSeeker(namepattern='Weight.+Sample', exclude = 'After')
+ordvars$names
+factvars <- ColSeeker(namepattern='region',casesensitive = FALSE)
+factvars$bticked
+```
+
+## Modellierung
+
+### *Beschreibende Statistik*
+
+-   *mean() / sd() / meansd()*
+-   *median() / quantile() / median_quart()*
+-   *table() / prop.table() / cat_desc_stats()*
+
+### *Tests*
+
+-   *t.test() / lm()+\[Aa\]nova() / compare2numvars()*
+-   *wilcox.test()*
+-   *fisher.test() / glm(family=binomial)*
+
+## *Modellierung: Deskriptiv*
+
+|                                                                            |                                  |
+|----------------------------------------------------------------------------|----------------------------------|
+| **Stichprobengröße n:** pro Variable, wenn fehlende Werte auftreten        |                                  |
+| **Mittelwert**: zentrale Tendenz, erwarteter *typischer* Wert              | $$\frac{\sum{x}}{n}$$            |
+| **Varianz**: Kennwert für Variabiliät/Heterogenität der Daten              | $$\frac{\sum{(x-mean)^2}}{n-1}$$ |
+| **Standardabweichung SD**: *typische* gewichtete Abweichung vom Mittelwert | $$\sqrt{Var}$$                   |
+
+## 
+
+|                                                                                                                                                                  |                                  |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------|
+| **Standardfehler des Mittelwerts**: wie zuverlässig ist die Mittelwerts*schätzung*, was wäre die zu erwartende SD der Mittelwerte aus wiederholten Experimenten? | $$\frac{SD}{\sqrt{n}}$$          |
+| **Median**: Trennung der unteren/oberen 50% der Daten                                                                                                            |                                  |
+| **Quartile**: Trennung bei 25%/50%/75% der Daten (allgemein: **Quantile**, z.B.**Perzentile**), Grundlage des Boxplot                                            | verschiedene Berechnungsmethoden |
+
+## 
+
+```{r, echo=TRUE}
+desc_gauss <- rawdata |> 
+  summarize(across(.cols = gaussvars$names,
+                   .fns = meansd))
+desc_gauss
+desc_ord <- rawdata |> 
+  summarize(across(ordvars$names,.fns=~median_quart(.x,roundDig = 3))) |> 
+  pivot_longer(everything(),
+               names_to = 'Measure', values_to = 'Median[1Q/3Q]')
+desc_ord
+```
+
+## Deskriptive Statistik sollte zu Verteilung und Daten passen
+
+![](Figures/MeanMedian.jpg){fig-align="center"}
+
+## *Modellierung: Tests*
+
+Tests benötigen Hypothesen
+
+![](Figures/guestimate.gif){fig-align="center"}
+
+## Nullhypothese ?
+
+-   Arbeitshypothese: Üblicherweise ein erwarteter Effekt!\
+    z.B. Behandlung senkt den Blutdruck stärker als ein Placebo, transgene Tiere werden adipös, Bioreaktor A ist effizienter als B, Konzentration einer Substanz ist korreliert mit der Reaktionsgeschwindigkeit ...
+
+-   Nullhypothese: Dies wird getestet!\
+    Kein Unterschied / Zusammenhang, Blutdruck unter Therapie = BD unter Placebo
+
+## 4 Möglichkeiten:
+
+-   Nullhypothese korrekt, Test falsch positiv (Fall A): alpha-Fehler
+
+-   Nullhypothese korrekt, Test korrekt negativ (Fall B)
+
+-   Nullhypothese falsch, Test falsch negativ (Fall C): beta-Fehler
+
+-   Nullhypothese falsch, Test korrekt positiv (Fall D)
+
+**Signifikanz**: NICHT Wahrscheinlichkeit von Fall A, sondern Wahrscheinlichkeit der Daten/beobachteten Effekte unter Annahme der NULLhypothese, berechnet aus den Daten, üblicherweise\<0.05
+
+**Power**: Wahrscheinlichkeit von Fall D, falls Nullhyothese falsch ist; *geschätzt* aus Annahmen zu Effektstärke, Variabilitäten und Fallzahl, *Berechnung* würde Wissen um wahre Unterschiede voraussetzen, üblicherweise = 0.80; daraus leitet sich beta-Fehler-Wahrscheinlichkeit von 0.20 ab!
+
+## Testfunktionen
+
+### t-Test / Wilcoxon-Test (aka Mann-Whitney U-test)
+
+![](Figures/MeanDiff.png){fig-align="center" width="800"}
+
+## t-Test
+
+-   Voraussetzung: Kontinuierliche Daten mit Normalverteilung
+
+-   1 or 2 (unabhängige or abhängige) Stichproben mit/ohne gleiche Varianzen
+
+-   wie groß ist der Mittelwertsunterschied relativ zur Unsicherheit der Mittelwerte?\
+    t = (mean~1~ - mean~2~)/SEM
+
+-   t folgt einer t-Verteilung, das erlaubt die Schätzung der Wahrscheinlichkeit von t unter der NULLhypothese
+
+### Wilcoxon-test
+
+-   nichtparametrisch, keine Vereilungsannahme
+
+-   basiert auf rang-transformierten Daten
+
+-   unempfindlich gegen Extremwerte
+
+## Test Beispiele: *einzelne Variablen*
+
+```{r, echo=TRUE}
+#t-Test with test for equal variances
+t_out <- t.test(formula=`Moisture Content (%)`~`Region`, data=rawdata,
+                var.equal=var.test(
+                  formula=`Moisture Content (%)`~`Region`, 
+                  data=rawdata)$p.value>.05)
+t_out
+#Wilcoxon-Test
+wilcox.test(`Moisture Content (%)`~`Region`, 
+            data = rawdata)
+```
+
+## Von t zu p
+
+```{r, echo=FALSE}
+tdata <- tibble(t=seq(-3,3,.01),y=dt(t,df = t_out$parameter))
+plottmp <- ggplot(tdata,aes(t,y))+geom_line()
+d <- ggplot_build(plottmp)$data[[1]]
+plottmp + geom_area(data = d %>% filter(x>=abs(t_out$statistic)),aes(x,y),
+                    fill='orangered',alpha=.5)+
+  geom_area(data = d %>% filter(x<=-abs(t_out$statistic)),aes(x,y),
+            fill='orangered',alpha=.5)+
+  geom_vline(xintercept = t_out$statistic, linetype=3)+
+  scale_x_continuous(breaks=seq(-10,10,.5))+
+  ylab('probability density')+
+  ggtitle(paste0('from t-test: t = ',roundR(t_out$statistic), 
+                 ', p ',formatP(t_out$p.value, pretext = T)))+
+  annotate('label', x=t_out$statistic,y=.0,
+           label=paste('area = ', 
+                       roundR(pt(abs(t_out$statistic),t_out$parameter,lower.tail = F))), 
+           hjust=-0.1, vjust=-0.1)
+
+```
+
+## *Modellierung: Test 2 / mehrere Variablen*
+
+```{r, echo=TRUE}
+test_gauss <- compare2numvars(data = rawdata,
+                              dep_vars = gaussvars$names,
+                              indep_var = 'Region',
+                              gaussian = TRUE,
+                              round_p = 5)
+test_gauss |> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
+
+```
+
+## 
+
+```{r}
+test_ord <- compare2numvars(data = rawdata,
+                            dep_vars = ordvars$names,
+                            indep_var = 'Region',
+                            gaussian = FALSE,round_desc = 3)
+test_ord |> flextable() |> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
+```
+
+## Ergebnisdarstellung
+
+```{r, echo=FALSE, include=FALSE}
+t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, data=rawdata,
+                var.equal=var.test(
+                  formula=`Weight Of Sample Before Drying`~`Region`, 
+                  data=rawdata)$p.value>.05)
+```
+
+```{r}
+ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
+  geom_boxplot(outlier.alpha = 0)+
+  geom_beeswarm(alpha=.7, size=2,cex = 2, color="darkolivegreen")+
+  annotate(geom = 'label',x=2,y=4.2,
+           label='Extremwert -> grosse SD -> grosser SEM -> kleine t-Statistik -> hoher p-Wert',
+           hjust=0.8,vjust=0)+
+  geom_signif(comparisons = list(c(1,2)),
+              annotations = paste('p',formatP(t_out$p.value)))
+```
+
+## Umentscheidung bei Testauswahl?
+
+```{r}
+ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
+  geom_boxplot(outlier.alpha = 0)+
+  geom_beeswarm(alpha=.7, size=2,cex = 2, color="darkolivegreen")+
+  geom_signif(comparisons = list(c(1,2)),test = wilcox.test)
+```
+
+## *Modellierung: lineare Modelle 1 / univariable*
+
+```{r}
+plottmp <- ggplot(rawdata,aes(Subregion,`Moisture Content (%)`))+
+  geom_violin(draw_quantiles = c(.25,.5,.75))+
+  geom_beeswarm(color="darkolivegreen")+
+  
+  ggtitle('Sind alle Teilregionen gleich?')
+print(plottmp)
+```
+
+## ANOVA: Modellbildung
+
+```{r}
+rawdata |> group_by(Subregion) |> 
+  summarize(MeanMoisture=mean(`Moisture Content (%)`) |> roundR(4)) |> 
+  pivot_wider(names_from = Subregion,values_from = MeanMoisture) |> 
+  rename_with(~paste('Mean moisture %\n',.x)) |> flextable()|>
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
+lm1<- lm(`Moisture Content (%)`~Subregion, data=rawdata)
+lm1
+```
+
+## ANOVA: p-Werte
+
+```{r}
+anova(lm1) |> broom::tidy() |> flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')
+#post-hoc
+(posthoc_out <- pairwise.t.test(x = rawdata$`Moisture Content (%)`, 
+                                g = rawdata$Subregion, 
+                                p.adjust.method = 'fdr')$p.value |> 
+    formatP(ndigits = 5))
+```
+
+<!-- ## *Model: linear models 2 / multivariable* -->
+
+```{r, echo=FALSE, eval=FALSE, include=FALSE}
+lm2<- lm(sysRR~(Sex+Agegroup)*Treatment, 
+         data=faketrial)
+lm2
+Anova(lm2,type = 3)
+```
+
+## *Visualisierung ANOVA*
+
+```{r}
+ggplot(rawdata,aes(Subregion,`Moisture Content (%)`))+
+  geom_violin(draw_quantiles = c(.25,.5,.75))+
+  geom_beeswarm(color="darkolivegreen")+
+  geom_signif(comparisons = list(c(1,2),c(1,3),c(2,3)),
+              annotations = c(posthoc_out[,1], posthoc_out[2,2]),
+              step_increase = .25)+
+  scale_y_continuous(expand = expansion(mult = .1))+
+  ggtitle('Teilregionen sind ungleich')
+```
+
+## *Analyse von mehr als 1 Zielgröße*
+
+```{r}
+test_out <- compare_n_numvars(.data=rawdata,
+                              dep_vars=gaussvars$names,
+                              indep_var='Subregion',
+                              gaussian=TRUE)
+test_out$results |> 
+  select(Variable,contains("fn"),multivar_p) |> 
+  rename_with(~str_remove(.x," fn")) |> 
+  flextable()|> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite') |> 
+  add_footer_lines(
+    values='b bedeutet Unterschied zu Gruppe 2, c Unterschied zu Gruppe 3')
+
+```
+
+## Regression: Scatterplot
+
+```{r, fig.width=15, fig.height=10, echo=FALSE}
+p1 <- ggplot(rawdata,aes(`Weight Of Empty Cup`,`Weight Of Sample Before Drying`))+
+  geom_point() + geom_smooth()
+p2 <- rawdata |> filter(`Weight Of Sample Before Drying`>4.5) |> 
+  ggplot(aes(`Weight Of Empty Cup`,`Weight Of Sample Before Drying`))+
+  geom_point() + geom_smooth()+geom_smooth(method='lm')
+p3 <- rawdata |> filter(`Weight Of Sample Before Drying`>4.5) |> 
+  ggplot(aes(`Weight Of Empty Cup`,`Moisture Content (%)`))+
+  geom_point() + geom_smooth(method='lm')
+p1+p2+p3
+```
+
+## Regression: Grundlegender *Mechanismus*
+
+![](Figures/RegressionSprings.png){fig-align="center"}
+
+## Regression: Statistik
+
+```{r}
+lm_out0 <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, 
+             data=rawdata)
+lm_out0
+
+# filtering outlier
+lm_out <- lm(`Weight Of Sample Before Drying` ~ `Weight Of Empty Cup`, 
+             data=rawdata |> filter(`Weight Of Sample Before Drying`>4.5))
+lm_out
+
+```
+
+## *Regression: Visualisierung*
+
+```{r, echo=FALSE, fig.width=15}
+ggplot(rawdata,aes(`Weight Of Empty Cup`,
+                   `Weight Of Sample Before Drying`))+
+  geom_point(aes(color=`Weight Of Sample Before Drying`>4.5))+
+  scale_color_manual(values=c('darkred','darkolivegreen'))+
+  guides(color='none')+
+  geom_smooth(data = rawdata |> filter(`Weight Of Sample Before Drying`>4.5),
+              method='lm', se=FALSE)+
+  geom_abline(slope=lm_out$coefficients[2],
+              intercept = lm_out$coefficients[1],
+              linetype=3, color='darkred')+
+  scale_x_continuous(limits=c(-1,NA))+
+  scale_y_continuous(limits=c(NA,lm_out$coefficients[1]))+
+  annotate('label',x=0,y=lm_out$coefficients[1], size=7,
+           label=paste('Intercept:',roundR(lm_out$coefficients[1],4)),hjust=-.1)+
+  geom_segment(x=0,xend=1,
+               y=lm_out$coefficients[1]+lm_out$coefficients[2],
+               yend=lm_out$coefficients[1]+lm_out$coefficients[2],
+               linetype=2)+
+  geom_segment(x=0,xend=0,y=lm_out$coefficients[1],
+               yend=lm_out$coefficients[1]+lm_out$coefficients[2],
+               linetype=2,
+               arrow = arrow(length = unit(0.2, "inches"), 
+                             type='closed', ends='both'))+
+  annotate('label',x=0,y=lm_out$coefficients[1]+lm_out$coefficients[2]/2, size=7,
+           label=paste('Slope:',roundR(lm_out$coefficients[2],4)),hjust=1.1)
+```
+
+## Regression: Signifikanz
+
+```{r}
+anova(lm_out) |> broom::tidy()
+model_parameters(lm_out)
+```
+
+## *Berichtserstellung*
+
+-   *RMarkdown und quarto sind mächtige Werkzeuge für Berichte und Präsentationen*
+
+-   Export von Abbildungen: ggsave() / png() / pdf()
+
+-   Export von Tabellen: write_xlsx()
+
+-   *Paket flextable bietet viele Möglichkeiten zur Tabellenformatierung*
+
+## Flextable Beispiel
+
+```{r, echo=TRUE,size=3}
+test_ord |> select(-desc_all) |> rename_with(~str_remove(.,'Code Of ')) |> 
+  flextable() |> 
+  theme_zebra(even_body = 'aquamarine',odd_body = 'antiquewhite')|> 
+  italic(~p<=0.05,j = 1) |> bg(~p<=0.05,j = 4,bg = 'yellow') |> 
+  set_caption('Treatment effects, measures following a normal distribution') |> 
+  add_footer_lines('Significance level is set at 0.05') |> 
+  fontsize(size = 12,part = 'footer') 
+
+```
+
+## Nützliche Werkzeuge
+
+-   Auswahl Spalten / Zeilen: select() / pull() / filter() / slice()
+
+-   Umformatierung von Tabellen breit \<--\> lang (z.B. für wiederholte Messungen):\
+    pivot_longer()/pivot_wider()
+
+-   Reguläre Ausdrücke: str_replace() / str_detect() / str\_...
+
+-   Zusammenfügen von Textelementen: paste() / str_glue()
+
+-   Anwendung von Funktionen: purrr::map_xxx
