@@ -52,7 +52,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = NA, echo = TRU
 
 ## Import
 
--   *read_xlsx() / read_csv() / read_csv2()*
+-   *read_xlsx() / read_csv() / read_csv2() / read_spss() / read_sas() / DBI::xx() / dbplyr::xx()*
 -   options related to separators, number formats, ranges etc.
 -   *rename() / rename_with()*
 
@@ -123,16 +123,13 @@ head(rawdata,5)|> flextable()|>
 ```{r, echo=TRUE}
 p1 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Empty Cup`))+
   geom_boxplot(outlier.alpha = 0) + #hide outliers, beeswarm will plot them
-  geom_beeswarm(alpha=.5, color="darkolivegreen")
+  geom_beeswarm(alpha=.5, color="darkorange")
 p2 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0) + 
-  geom_beeswarm(alpha=.5, color="darkolivegreen")+
-  geom_text_repel(data=. %>% group_by(Region) %>%  
-             filter(`Weight Of Sample Before Drying` %in%
-                      boxplot.stats(`Weight Of Sample Before Drying`, coef=1.5)$out),
-           aes(label=`Code Of Cup` , y=`Weight Of Sample Before Drying`), 
-           nudge_x=0.1, colour="red", size=3, hjust=0) 
+  geom_beeswarm(alpha=.5, color="darkorange") 
+p2 <- label_outliers(p2, labelvar = "Code Of Cup")#+
 p1|p2
+
 ```
 
 ## Handle outliers?
@@ -148,7 +145,7 @@ ggplot(data = rawdata,
        aes(x = `Region`,
            y = `Moisture Content (%)`))+
   geom_boxplot(outlier.alpha = 0) + 
-  geom_beeswarm(alpha=.5, color="darkolivegreen")
+  geom_beeswarm(alpha=.5, size = 2.5, color="darkorange")
 ```
 
 ## Transform Subregions?
@@ -251,20 +248,20 @@ factvars$bticked
 
 ## *Model: Describe*
 
-|                                                                           |                                  |
-|---------------------------------------------------------------------------|----------------------------------|
-| **Sample size n:** per variable, if there are NAs                         |                                  |
-| **Mean**: central tendency, the expected *typical* value                  | $$\frac{\sum{x}}{n}$$            |
-| **Variance**: measure for variability/heterogeneity of data               | $$\frac{\sum{(x-mean)^2}}{n-1}$$ |
-| **Standard deviation SD**: the *typical* weighted deviation from the mean | $$\sqrt{Var}$$                   |
+|  |  |
+|------------------------------------|------------------------------------|
+| **Sample size n:** per variable, if there are NAs |  |
+| **Mean**: central tendency, the expected *typical* value | $$\frac{\sum{x}}{n}$$ |
+| **Variance**: measure for variability/heterogeneity of data | $$\frac{\sum{(x-mean)^2}}{n-1}$$ |
+| **Standard deviation SD**: the *typical* weighted deviation from the mean | $$\sqrt{Var}$$ |
 
 ## 
 
-|                                                                                                                                            |                                  |
-|--------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------|
-| **Standard error of the mean SEM**: how reliable is the mean *estimate*, what would be the expected SD of means from repeated experiments? | $$\frac{SD}{\sqrt{n}}$$          |
-| **Median**: Split between lower/upper 50% of data                                                                                          |                                  |
-| **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot                            | various computational approaches |
+|  |  |
+|------------------------------------|------------------------------------|
+| **Standard error of the mean SEM**: how reliable is the mean *estimate*, what would be the expected SD of means from repeated experiments? | $$\frac{SD}{\sqrt{n}}$$ |
+| **Median**: Split between lower/upper 50% of data |  |
+| **Quartiles**: Split at 25%/50%/75% of data (more general: **Quantiles**, e.g.**Percentiles**), used in boxplot | various computational approaches |
 
 ## 
 
@@ -409,7 +406,7 @@ t_out <- t.test(formula=`Weight Of Sample Before Drying`~`Region`, data=rawdata,
 ```{r}
 ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
-  geom_beeswarm(alpha=.7, size=2,cex = 2, color="darkolivegreen")+
+  geom_beeswarm(alpha=.7, size=2.5,cex = 1.5, color="darkorange")+
   annotate(geom = 'label',x=2,y=4.2,
            label='extreme value -> high SD -> high SEM ->low t-statistic->high p-value',
            hjust=0.8,vjust=0)+
@@ -422,7 +419,7 @@ ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
 ```{r}
 ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0)+
-  geom_beeswarm(alpha=.7, size=2,cex = 2, color="darkolivegreen")+
+  geom_beeswarm(alpha=.7, size = 2.5,cex = 1.5, color="darkorange")+
   geom_signif(comparisons = list(c(1,2)),test = wilcox.test)
 ```
 
@@ -431,7 +428,7 @@ ggplot(rawdata, aes(x = `Region`,y = `Weight Of Sample Before Drying`))+
 ```{r}
 plottmp <- ggplot(rawdata,aes(Subregion,`Moisture Content (%)`))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
-  geom_beeswarm(color="darkolivegreen")+
+  geom_beeswarm(color="darkorange")+
   
   ggtitle('Are all Subregions equal?')
 print(plottmp)
@@ -475,7 +472,7 @@ Anova(lm2,type = 3)
 ```{r}
 ggplot(rawdata,aes(Subregion,`Moisture Content (%)`))+
   geom_violin(draw_quantiles = c(.25,.5,.75))+
-  geom_beeswarm(color="darkolivegreen")+
+  geom_beeswarm(color="darkorange")+
   geom_signif(comparisons = list(c(1,2),c(1,3),c(2,3)),
               annotations = c(posthoc_out[,1], posthoc_out[2,2]),
               step_increase = .25)+
@@ -504,13 +501,17 @@ test_out$results |>
 
 ```{r, fig.width=15, fig.height=10, echo=FALSE}
 p1 <- ggplot(rawdata,aes(`Weight Of Empty Cup`,`Weight Of Sample Before Drying`))+
-  geom_point() + geom_smooth()
+  geom_point(color = "darkorange", size = 2, alpha=.4) + 
+  geom_smooth()
 p2 <- rawdata |> filter(`Weight Of Sample Before Drying`>4.5) |> 
   ggplot(aes(`Weight Of Empty Cup`,`Weight Of Sample Before Drying`))+
-  geom_point() + geom_smooth()+geom_smooth(method='lm')
+  geom_point(color = "darkorange", size = 2, alpha=.4) + 
+  geom_smooth()+
+  geom_smooth(method='lm')
 p3 <- rawdata |> filter(`Weight Of Sample Before Drying`>4.5) |> 
   ggplot(aes(`Weight Of Empty Cup`,`Moisture Content (%)`))+
-  geom_point() + geom_smooth(method='lm')
+  geom_point(color = "darkorange", size = 2, alpha=.4) + 
+  geom_smooth(method='lm')
 p1+p2+p3
 ```
 
@@ -537,8 +538,8 @@ lm_out
 ```{r, echo=FALSE, fig.width=15}
 ggplot(rawdata,aes(`Weight Of Empty Cup`,
                    `Weight Of Sample Before Drying`))+
-  geom_point(aes(color=`Weight Of Sample Before Drying`>4.5))+
-  scale_color_manual(values=c('darkred','darkolivegreen'))+
+  geom_point(aes(color=`Weight Of Sample Before Drying`>4.5),alpha=.5)+
+  scale_color_manual(values=c('darkred','darkorange'))+
   guides(color='none')+
   geom_smooth(data = rawdata |> filter(`Weight Of Sample Before Drying`>4.5),
               method='lm', se=FALSE)+
