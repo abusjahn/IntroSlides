@@ -127,7 +127,7 @@ p1 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Empty Cup`))+
 p2 <- ggplot(data = rawdata, aes(x = `Region`, y = `Weight Of Sample Before Drying`))+
   geom_boxplot(outlier.alpha = 0) + 
   geom_beeswarm(alpha=.5, color="darkorange") 
-p2 <- label_outliers(p2, labelvar = "Code Of Cup")#+
+p2 <- label_outliers(p2, labelvar = "Code Of Cup")
 p1|p2
 
 ```
